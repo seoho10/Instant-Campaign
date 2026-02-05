@@ -224,6 +224,19 @@
             return rows;
         }
         
+        // G열 검색량 문자열을 정렬용 숫자로 변환 (예: "검색 200+회"→200, "검색 1만+회"→10000)
+        function parseCountForSort(countStr) {
+            if (!countStr || typeof countStr !== 'string') return 0;
+            const s = countStr.trim();
+            if (s.toLowerCase().includes('search count')) return 0;
+            const man = s.match(/(\d+)\s*만/);
+            if (man) return (parseInt(man[1], 10) || 0) * 10000;
+            const chun = s.match(/(\d+)\s*천/);
+            if (chun) return (parseInt(chun[1], 10) || 0) * 1000;
+            const num = s.match(/(\d+)/);
+            return num ? parseInt(num[1], 10) || 0 : 0;
+        }
+        
         // 검색량 포맷팅 함수
         function formatSearchCount(count) {
             const num = parseInt(count);
@@ -399,21 +412,21 @@
                     return;
                 }
                 
-                // F열=검색어, G열=검색량 추출 (검색량 없으면 0)
+                // F열=검색어, G열=검색량 — G열은 그대로 표시, 정렬용 숫자만 파싱
                 const keywordRows = [];
                 rowsToUse.forEach((row) => {
                     const keyword = (row[keywordCol] != null ? String(row[keywordCol]) : '').trim();
                     if (!keyword) return;
                     if (keyword.toLowerCase().includes('search term')) return;
-                    let raw = (row[countCol] != null ? String(row[countCol]) : '').trim().replace(/,/g, '').replace(/\s/g, '');
-                    const searchCount = parseInt(raw, 10);
-                    keywordRows.push({ keyword, searchCount: (isNaN(searchCount) || searchCount < 0) ? 0 : searchCount });
+                    const countDisplay = (row[countCol] != null ? String(row[countCol]) : '').trim();
+                    const sortNum = parseCountForSort(countDisplay);
+                    keywordRows.push({ keyword, countDisplay: countDisplay || '-', searchCount: sortNum });
                 });
                 keywordRows.sort((a, b) => b.searchCount - a.searchCount);
                 currentTrendKeywords = keywordRows;
                 
-                // 리스트 UI 생성
-                keywordRows.forEach(({ keyword, searchCount }) => {
+                // 리스트 UI 생성 (검색량은 G열 값 그대로 표시)
+                keywordRows.forEach(({ keyword, countDisplay }) => {
                     const listItem = document.createElement('div');
                     listItem.className = 'p-2 rounded cursor-pointer hover:bg-gray-50 flex justify-between items-center trend-item';
                     listItem.dataset.keyword = keyword;
@@ -439,7 +452,7 @@
                     listItem.innerHTML = `
                         <span class="text-sm text-gray-700 keyword-text">${keyword}</span>
                         <div class="text-right">
-                            <div class="text-sm font-bold count-text">${formatSearchCount(String(searchCount))}</div>
+                            <div class="text-sm font-bold count-text">${countDisplay || '-'}</div>
                             <div class="text-xs text-red-500">↑ ${Math.floor(Math.random() * 900 + 100)}%</div>
                         </div>
                     `;
@@ -474,7 +487,7 @@
                 // 사용자가 키워드를 선택한 경우 — 해당 키워드 기준 구체적 제안
                 const keyword = selectedKeyword;
                 const item = currentTrendKeywords.find(k => k.keyword === keyword);
-                const vol = item ? formatSearchCount(String(item.searchCount)) : '';
+                const vol = item && item.countDisplay ? item.countDisplay : (item ? formatSearchCount(String(item.searchCount)) : '');
                 if (selectedBrand === 'DV') {
                     el.textContent = `[선택 키워드: ${keyword}${vol ? ' · 검색량 ' + vol : ''}]\n\n` +
                         `이 키워드를 메인으로 한 감성 룩북 기획을 추천합니다. 헤드라인에는 트렌드 감성(“${keyword}”)을 녹이고, 서브카피에서는 시즌 무드나 착용 포인트를 짧게 강조하세요. ` +
