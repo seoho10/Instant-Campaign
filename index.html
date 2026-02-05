@@ -20,31 +20,32 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 flex flex-col h-screen overflow-y-auto overflow-x-hidden">
+<body class="bg-gray-50 text-gray-800 overflow-y-auto overflow-x-hidden min-h-screen">
 
-    <header class="w-full bg-white border-b sticky top-0 z-10 shrink-0">
-        <div class="p-4 border-b">
-            <h1 class="text-3xl font-bold text-indigo-600">Instant Campaign</h1>
+    <div id="dashboard" class="flex flex-col h-screen flex-shrink-0 overflow-hidden">
+        <header class="w-full bg-white border-b z-10 shrink-0">
+            <div class="p-4 border-b">
+                <h1 class="text-3xl font-bold text-indigo-600">Instant Campaign</h1>
+            </div>
+            <div class="px-4 py-4 flex gap-4 items-center bg-gray-50">
+                <span class="font-medium text-gray-600">브랜드 선택:</span>
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="brand" value="DV" class="w-4 h-4 text-indigo-600" checked>
+                    <span class="font-semibold">DV</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="brand" value="ST" class="w-4 h-4 text-indigo-600">
+                    <span class="font-semibold">ST</span>
+                </label>
+            </div>
+        </header>
+
+        <div id="aiInsightBar" class="w-full bg-indigo-50 border-b border-indigo-100 shrink-0 px-4 py-3 flex gap-3 items-start">
+            <span class="text-sm font-semibold text-indigo-700 whitespace-nowrap pt-0.5">🤖 AI MD 제안</span>
+            <div id="aiInsightText" class="text-sm text-gray-700 min-w-0 flex-1 leading-relaxed whitespace-pre-wrap">트렌드 키워드를 불러오는 중입니다. 로드 후 자동으로 제안이 표시됩니다.</div>
         </div>
-        <div class="px-4 py-4 flex gap-4 items-center bg-gray-50">
-            <span class="font-medium text-gray-600">브랜드 선택:</span>
-            <label class="flex items-center gap-1 cursor-pointer">
-                <input type="radio" name="brand" value="DV" class="w-4 h-4 text-indigo-600" checked>
-                <span class="font-semibold">DV</span>
-            </label>
-            <label class="flex items-center gap-1 cursor-pointer">
-                <input type="radio" name="brand" value="ST" class="w-4 h-4 text-indigo-600">
-                <span class="font-semibold">ST</span>
-            </label>
-        </div>
-    </header>
 
-    <div id="aiInsightBar" class="w-full bg-indigo-50 border-b border-indigo-100 shrink-0 px-4 py-2 flex items-center gap-3">
-        <span class="text-sm font-semibold text-indigo-700 whitespace-nowrap">🤖 AI MD 제안:</span>
-        <span id="aiInsightText" class="text-sm text-gray-700 truncate min-w-0 flex-1">키워드를 선택하면 인사이트가 표시됩니다.</span>
-    </div>
-
-    <main class="main-content grid grid-cols-12 grid-rows-[1fr] gap-0 flex-1 min-h-0 overflow-hidden w-full">
+        <main class="main-content grid grid-cols-12 grid-rows-[1fr] gap-0 flex-1 min-h-0 overflow-hidden w-full">
         
         <section class="col-span-3 border-r bg-white p-4 min-h-0 overflow-y-auto">
             <h2 class="text-base font-bold mb-4 text-gray-700">1. 검색어 선택</h2>
@@ -62,63 +63,63 @@
             </div>
         </section>
 
-        <section class="col-span-5 border-r p-3 min-h-0 overflow-y-auto bg-gray-50">
-            <h2 class="text-base font-bold mb-2 text-gray-700">2. 기획전 템플릿</h2>
-            <div class="grid grid-cols-2 gap-1.5">
-                <div class="template-card relative bg-gray-100 rounded-lg p-2.5 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md ring-4 ring-indigo-500 ring-offset-2" data-template="A">
-                    <div class="absolute top-1 right-1 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white template-check">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <section class="col-span-5 border-r p-4 min-h-0 overflow-y-auto bg-gray-50">
+            <h2 class="text-base font-bold mb-3 text-gray-700">2. 기획전 템플릿</h2>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md ring-4 ring-indigo-500 ring-offset-2" data-template="A">
+                    <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white template-check">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </div>
-                    <p class="text-xs font-bold text-gray-800 mb-0.5">템플릿 A</p>
-                    <p class="text-[10px] text-gray-500 mb-1.5">배너형 · 키워드 강조</p>
-                    <div class="aspect-video max-h-14 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-1.5">
+                    <p class="text-sm font-bold text-gray-800 mb-1">템플릿 A</p>
+                    <p class="text-xs text-gray-500 mb-2">배너형 · 키워드 강조</p>
+                    <div class="aspect-video max-h-24 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-2">
                         <svg class="w-full h-full p-1 text-indigo-200" viewBox="0 0 120 60" preserveAspectRatio="none"><rect width="120" height="60" fill="none" stroke="currentColor" stroke-width="1"/><line x1="0" y1="20" x2="120" y2="20" stroke="currentColor" stroke-width="1"/><line x1="0" y1="40" x2="80" y2="40" stroke="currentColor" stroke-width="1"/></svg>
                     </div>
-                    <div class="flex gap-1 p-1 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded bg-indigo-600 text-white font-medium" data-template="A" data-variant="PC">PC</button>
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="A" data-variant="MO">MO</button>
+                    <div class="flex gap-1.5 p-1.5 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded bg-indigo-600 text-white font-medium" data-template="A" data-variant="PC">PC</button>
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="A" data-variant="MO">MO</button>
                     </div>
                 </div>
-                <div class="template-card relative bg-gray-100 rounded-lg p-2.5 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="B">
-                    <div class="absolute top-1 right-1 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="B">
+                    <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </div>
-                    <p class="text-xs font-bold text-gray-800 mb-0.5">템플릿 B</p>
-                    <p class="text-[10px] text-gray-500 mb-1.5">카드형 · 세일즈 강조</p>
-                    <div class="aspect-video max-h-14 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-1.5">
+                    <p class="text-sm font-bold text-gray-800 mb-1">템플릿 B</p>
+                    <p class="text-xs text-gray-500 mb-2">카드형 · 세일즈 강조</p>
+                    <div class="aspect-video max-h-24 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-2">
                         <svg class="w-full h-full p-1 text-indigo-200" viewBox="0 0 120 60" preserveAspectRatio="none"><rect width="120" height="60" fill="none" stroke="currentColor" stroke-width="1"/><rect x="5" y="5" width="35" height="25" fill="none" stroke="currentColor" stroke-width="1"/><rect x="45" y="5" width="35" height="25" fill="none" stroke="currentColor" stroke-width="1"/><rect x="85" y="5" width="30" height="25" fill="none" stroke="currentColor" stroke-width="1"/><rect x="5" y="35" width="55" height="20" fill="none" stroke="currentColor" stroke-width="1"/><rect x="65" y="35" width="50" height="20" fill="none" stroke="currentColor" stroke-width="1"/></svg>
                     </div>
-                    <div class="flex gap-1 p-1 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="B" data-variant="PC">PC</button>
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="B" data-variant="MO">MO</button>
+                    <div class="flex gap-1.5 p-1.5 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="B" data-variant="PC">PC</button>
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="B" data-variant="MO">MO</button>
                     </div>
                 </div>
-                <div class="template-card relative bg-gray-100 rounded-lg p-2.5 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="C">
-                    <div class="absolute top-1 right-1 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="C">
+                    <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </div>
-                    <p class="text-xs font-bold text-gray-800 mb-0.5">템플릿 C</p>
-                    <p class="text-[10px] text-gray-500 mb-1.5">리스트형 · 브랜드 스토리</p>
-                    <div class="aspect-video max-h-14 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-1.5">
+                    <p class="text-sm font-bold text-gray-800 mb-1">템플릿 C</p>
+                    <p class="text-xs text-gray-500 mb-2">리스트형 · 브랜드 스토리</p>
+                    <div class="aspect-video max-h-24 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-2">
                         <svg class="w-full h-full p-1 text-indigo-200" viewBox="0 0 120 60" preserveAspectRatio="none"><rect width="120" height="60" fill="none" stroke="currentColor" stroke-width="1"/><line x1="10" y1="12" x2="110" y2="12" stroke="currentColor" stroke-width="1"/><line x1="10" y1="24" x2="110" y2="24" stroke="currentColor" stroke-width="1"/><line x1="10" y1="36" x2="90" y2="36" stroke="currentColor" stroke-width="1"/><line x1="10" y1="48" x2="100" y2="48" stroke="currentColor" stroke-width="1"/></svg>
                     </div>
-                    <div class="flex gap-1 p-1 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="C" data-variant="PC">PC</button>
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="C" data-variant="MO">MO</button>
+                    <div class="flex gap-1.5 p-1.5 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="C" data-variant="PC">PC</button>
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="C" data-variant="MO">MO</button>
                     </div>
                 </div>
-                <div class="template-card relative bg-gray-100 rounded-lg p-2.5 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="D">
-                    <div class="absolute top-1 right-1 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="D">
+                    <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </div>
-                    <p class="text-xs font-bold text-gray-800 mb-0.5">템플릿 D</p>
-                    <p class="text-[10px] text-gray-500 mb-1.5">이벤트형 · 프로모션 강조</p>
-                    <div class="aspect-video max-h-14 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-1.5">
+                    <p class="text-sm font-bold text-gray-800 mb-1">템플릿 D</p>
+                    <p class="text-xs text-gray-500 mb-2">이벤트형 · 프로모션 강조</p>
+                    <div class="aspect-video max-h-24 rounded bg-white border border-gray-200 overflow-hidden flex items-center justify-center mb-2">
                         <svg class="w-full h-full p-1 text-indigo-200" viewBox="0 0 120 60" preserveAspectRatio="none"><rect width="120" height="60" fill="none" stroke="currentColor" stroke-width="1"/><rect x="10" y="10" width="100" height="15" fill="none" stroke="currentColor" stroke-width="1"/><rect x="10" y="30" width="45" height="20" fill="none" stroke="currentColor" stroke-width="1"/><rect x="65" y="30" width="45" height="20" fill="none" stroke="currentColor" stroke-width="1"/></svg>
                     </div>
-                    <div class="flex gap-1 p-1 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="D" data-variant="PC">PC</button>
-                        <button type="button" class="template-variant px-2 py-0.5 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="D" data-variant="MO">MO</button>
+                    <div class="flex gap-1.5 p-1.5 bg-white rounded border border-gray-200 w-fit" onclick="event.stopPropagation()">
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="D" data-variant="PC">PC</button>
+                        <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="D" data-variant="MO">MO</button>
                     </div>
                 </div>
             </div>
@@ -152,6 +153,7 @@
             </div>
         </section>
     </main>
+    </div>
 
     <div id="result" class="min-h-screen w-full bg-indigo-900 p-12 flex flex-col items-center justify-center text-white">
         <div class="max-w-4xl w-full">
@@ -178,6 +180,8 @@
     <script>
         // 선택된 키워드를 저장할 변수
         let selectedKeyword = null;
+        // 트렌드 키워드 목록 (검색량 내림차순) — 로드 후 AI 제안에 사용
+        let currentTrendKeywords = [];
         // 선택된 브랜드를 저장할 변수
         let selectedBrand = 'DV';
         // 선택된 템플릿을 저장할 변수 (A/B/C/D)
@@ -388,68 +392,61 @@
                 
                 if (latestRows.length === 0) {
                     trendsListContainer.innerHTML = '<div class="p-2 text-sm text-gray-500">해당 시간대의 데이터가 없습니다.</div>';
+                    currentTrendKeywords = [];
+                    updateInsight();
                     return;
                 }
                 
-                // latestRows에서 F열(index 5, Search Term)과 G열(index 6, Search Count) 추출하여 리스트 생성
+                // F열(5), G열(6) 추출 후 검색량 내림차순 정렬 — AI 제안·리스트 공용
+                const keywordRows = [];
                 latestRows.forEach((row) => {
-                    // F열(인덱스 5)에서 키워드, G열(인덱스 6)에서 검색량 가져오기
-                    if (row.length > 6) {
-                        const keyword = row[5]?.trim(); // F열
-                        const searchCount = row[6]?.trim(); // G열
-                        
-                        // 유효성 검사: 키워드와 검색량이 있어야 함
-                        if (!keyword || !searchCount) return;
-                        
-                        // 'Search Term' 헤더 텍스트가 포함된 행이나 빈 행 제외
-                        const keywordLower = keyword.toLowerCase();
-                        if (keywordLower.includes('search term') || 
-                            keywordLower === '' ||
-                            searchCount.toLowerCase().includes('search')) {
-                            return;
-                        }
-                        
-                        // 리스트 아이템 생성
-                        const listItem = document.createElement('div');
-                        listItem.className = 'p-2 rounded cursor-pointer hover:bg-gray-50 flex justify-between items-center trend-item';
-                        listItem.dataset.keyword = keyword;
-                        
-                        // 클릭 이벤트 추가 (선택 효과: border-indigo-500)
-                        listItem.addEventListener('click', function() {
-                            // 이전 선택 해제
-                            document.querySelectorAll('.trend-item').forEach(item => {
-                                item.classList.remove('border-2', 'border-indigo-500', 'bg-indigo-50');
-                                const keywordSpan = item.querySelector('.keyword-text');
-                                const countDiv = item.querySelector('.count-text');
-                                if (keywordSpan) keywordSpan.classList.remove('font-bold', 'text-indigo-600');
-                                if (countDiv) countDiv.classList.remove('text-indigo-600');
-                            });
-                            
-                            // 현재 항목 선택 표시
-                            this.classList.add('border-2', 'border-indigo-500', 'bg-indigo-50');
-                            const keywordSpan = this.querySelector('.keyword-text');
-                            const countDiv = this.querySelector('.count-text');
-                            if (keywordSpan) keywordSpan.classList.add('font-bold', 'text-indigo-600');
-                            if (countDiv) countDiv.classList.add('text-indigo-600');
-                            
-                            // 선택된 키워드 저장 및 인사이트 갱신
-                            selectedKeyword = keyword;
-                            updateInsight();
-                            console.log('Selected keyword:', selectedKeyword);
-                        });
-                        
-                        // HTML 구조 생성
-                        listItem.innerHTML = `
-                            <span class="text-sm text-gray-700 keyword-text">${keyword}</span>
-                            <div class="text-right">
-                                <div class="text-sm font-bold count-text">${formatSearchCount(searchCount)}</div>
-                                <div class="text-xs text-red-500">↑ ${Math.floor(Math.random() * 900 + 100)}%</div>
-                            </div>
-                        `;
-                        
-                        trendsListContainer.appendChild(listItem);
-                    }
+                    if (row.length <= 6) return;
+                    const keyword = row[5]?.trim();
+                    const searchCount = row[6]?.trim();
+                    if (!keyword || !searchCount) return;
+                    const keywordLower = keyword.toLowerCase();
+                    if (keywordLower.includes('search term') || searchCount.toLowerCase().includes('search')) return;
+                    keywordRows.push({ keyword, searchCount: parseInt(searchCount, 10) || 0 });
                 });
+                keywordRows.sort((a, b) => b.searchCount - a.searchCount);
+                currentTrendKeywords = keywordRows;
+                
+                // 리스트 UI 생성
+                keywordRows.forEach(({ keyword, searchCount }) => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'p-2 rounded cursor-pointer hover:bg-gray-50 flex justify-between items-center trend-item';
+                    listItem.dataset.keyword = keyword;
+                    
+                    listItem.addEventListener('click', function() {
+                        document.querySelectorAll('.trend-item').forEach(item => {
+                            item.classList.remove('border-2', 'border-indigo-500', 'bg-indigo-50');
+                            const keywordSpan = item.querySelector('.keyword-text');
+                            const countDiv = item.querySelector('.count-text');
+                            if (keywordSpan) keywordSpan.classList.remove('font-bold', 'text-indigo-600');
+                            if (countDiv) countDiv.classList.remove('text-indigo-600');
+                        });
+                        this.classList.add('border-2', 'border-indigo-500', 'bg-indigo-50');
+                        const keywordSpan = this.querySelector('.keyword-text');
+                        const countDiv = this.querySelector('.count-text');
+                        if (keywordSpan) keywordSpan.classList.add('font-bold', 'text-indigo-600');
+                        if (countDiv) countDiv.classList.add('text-indigo-600');
+                        selectedKeyword = keyword;
+                        updateInsight();
+                        console.log('Selected keyword:', selectedKeyword);
+                    });
+                    
+                    listItem.innerHTML = `
+                        <span class="text-sm text-gray-700 keyword-text">${keyword}</span>
+                        <div class="text-right">
+                            <div class="text-sm font-bold count-text">${formatSearchCount(String(searchCount))}</div>
+                            <div class="text-xs text-red-500">↑ ${Math.floor(Math.random() * 900 + 100)}%</div>
+                        </div>
+                    `;
+                    trendsListContainer.appendChild(listItem);
+                });
+                
+                // 키워드 로드 직후 AI MD 제안 먼저 표시
+                updateInsight();
                 
             } catch (error) {
                 console.error('트렌드 데이터를 가져오는 중 오류 발생:', error);
@@ -463,19 +460,46 @@
             }
         }
         
-        // AI 인사이트 문구 실시간 업데이트
+        // AI MD 제안 문구 실시간 업데이트 (키워드 로드 후 먼저 제안, 선택 시 구체화)
         function updateInsight() {
             const el = document.getElementById('aiInsightText');
             if (!el) return;
-            if (!selectedKeyword) {
-                el.textContent = '키워드를 선택하면 인사이트가 표시됩니다.';
+            
+            const topN = currentTrendKeywords.slice(0, 5);
+            const topKeywords = topN.map(k => k.keyword);
+            const topKeywordStr = topKeywords.length ? topKeywords.join(', ') : '';
+            
+            if (selectedKeyword) {
+                // 사용자가 키워드를 선택한 경우 — 해당 키워드 기준 구체적 제안
+                const keyword = selectedKeyword;
+                const item = currentTrendKeywords.find(k => k.keyword === keyword);
+                const vol = item ? formatSearchCount(String(item.searchCount)) : '';
+                if (selectedBrand === 'DV') {
+                    el.textContent = `[선택 키워드: ${keyword}${vol ? ' · 검색량 ' + vol : ''}]\n\n` +
+                        `이 키워드를 메인으로 한 감성 룩북 기획을 추천합니다. 헤드라인에는 트렌드 감성(“${keyword}”)을 녹이고, 서브카피에서는 시즌 무드나 착용 포인트를 짧게 강조하세요. ` +
+                        `템플릿 A(배너형) 또는 C(리스트형)로 키워드 노출을 크게 하면 검색 유입에 유리합니다. 참조 이미지는 해당 키워드와 맞는 한 벌 코디나 무드 사진을 넣어 주세요.`;
+                } else {
+                    el.textContent = `[선택 키워드: ${keyword}${vol ? ' · 검색량 ' + vol : ''}]\n\n` +
+                        `"${keyword}" 검색량이 높은 만큼, 타임세일·한정수량·즉시 할인 등 유니크 세일 포인트를 앞에 두는 전략을 추천합니다. ` +
+                        `템플릿 B(카드형)나 D(이벤트형)로 가격/혜택을 강조하고, 기획 의도에는 “한정 기간”, “선착 N명” 등을 명시하면 전환에 도움이 됩니다.`;
+                }
                 return;
             }
-            const keyword = selectedKeyword;
+            
+            if (topN.length === 0) {
+                el.textContent = '트렌드 키워드를 불러오는 중입니다. 로드 후 자동으로 제안이 표시됩니다.';
+                return;
+            }
+            
+            // 키워드만 로드된 상태 — 사용자 선택 전, 상위 키워드 기반으로 먼저 제안
             if (selectedBrand === 'DV') {
-                el.textContent = '트렌드 ' + keyword + '를 활용한 감성 룩북 컨셉을 추천합니다.';
+                el.textContent = `[현재 트렌드 상위 키워드: ${topKeywordStr}]\n\n` +
+                    `위 키워드를 반영한 감성 룩북 기획을 추천합니다. 검색량이 높은 순으로 1~2개를 메인 키워드로 정하고, 헤드라인·서브카피에 자연스럽게 녹여 주세요. ` +
+                    `키워드 강조가 목표라면 템플릿 A(배너형) 또는 C(리스트형), 무드 중심이라면 B(카드형)를 권장합니다. 왼쪽 목록에서 원하는 검색어를 클릭하면 해당 키워드 기준으로 더 구체적인 제안을 드립니다.`;
             } else {
-                el.textContent = keyword + ' 검색량 급증! 타임세일과 한정수량 강조 전략을 추천합니다.';
+                el.textContent = `[현재 트렌드 상위 키워드: ${topKeywordStr}]\n\n` +
+                    `이 키워드들의 검색 수요를 활용해 타임세일·한정 혜택 중심 기획을 추천합니다. 상위 1~2개를 메인으로 잡고, 가격/할인/선착순을 강조하는 문구를 넣어 주세요. ` +
+                    `템플릿 B(카드형) 또는 D(이벤트형)로 세일즈 포인트를 크게 노출하고, 기획 의도에 “한정 기간”, “선착 N명” 등을 적어 두시면 좋습니다. 왼쪽에서 키워드를 선택하면 해당 검색어 기준 맞춤 제안을 드립니다.`;
             }
         }
 
