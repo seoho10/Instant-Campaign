@@ -9,6 +9,15 @@
         /* 하단 시안 영역으로 부드럽게 넘어가기 위한 설정 */
         html { scroll-behavior: smooth; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+        /* main이 헤더·인사이트 아래 남은 높이를 꽉 채우도록 */
+        html, body { height: 100%; }
+        .main-content {
+            flex: 1 1 0%;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            grid-template-rows: 1fr;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 flex flex-col h-screen overflow-y-auto overflow-x-hidden">
@@ -35,9 +44,9 @@
         <span id="aiInsightText" class="text-sm text-gray-700 truncate min-w-0 flex-1">키워드를 선택하면 인사이트가 표시됩니다.</span>
     </div>
 
-    <main class="grid grid-cols-12 gap-0 flex-1 min-h-0 overflow-hidden">
+    <main class="main-content grid grid-cols-12 grid-rows-[1fr] gap-0 flex-1 min-h-0 overflow-hidden w-full">
         
-        <section class="col-span-3 border-r bg-white p-4 h-full min-h-0 overflow-y-auto">
+        <section class="col-span-3 border-r bg-white p-4 min-h-0 overflow-y-auto">
             <h2 class="text-base font-bold mb-4 text-gray-700">1. 검색어 선택</h2>
             <div class="flex items-center justify-between mb-2">
                 <span id="trendsUpdateTime" class="text-sm font-bold text-gray-400 uppercase">트렌드 (로딩 중...)</span>
@@ -53,7 +62,7 @@
             </div>
         </section>
 
-        <section class="col-span-5 border-r p-3 h-full min-h-0 overflow-y-auto bg-gray-50">
+        <section class="col-span-5 border-r p-3 min-h-0 overflow-y-auto bg-gray-50">
             <h2 class="text-base font-bold mb-2 text-gray-700">2. 기획전 템플릿</h2>
             <div class="grid grid-cols-2 gap-1.5">
                 <div class="template-card relative bg-gray-100 rounded-lg p-2.5 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md ring-4 ring-indigo-500 ring-offset-2" data-template="A">
@@ -115,7 +124,7 @@
             </div>
         </section>
 
-        <section class="col-span-4 p-4 h-full min-h-0 overflow-y-auto bg-white">
+        <section class="col-span-4 p-4 min-h-0 overflow-y-auto bg-white">
             <h2 class="text-base font-bold mb-4 text-gray-700">3. 상세 설정</h2>
             <div class="space-y-3">
                 <div>
