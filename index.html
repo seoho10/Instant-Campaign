@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 기획전 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.26/dist/interact.min.js"></script>
     <style>
         /* 하단 시안 영역으로 부드럽게 넘어가기 위한 설정 */
         html { scroll-behavior: smooth; }
@@ -18,9 +21,24 @@
             grid-template-columns: repeat(12, minmax(0, 1fr));
             grid-template-rows: 1fr;
         }
+        .overlay-text-box { position: absolute; cursor: move; user-select: none; white-space: nowrap; }
+        .overlay-text-box.dragging { outline: 1px dashed rgba(255,255,255,0.9); outline-offset: 2px; }
+        .overlay-text-box .resize-handle { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; cursor: nwse-resize; background: rgba(255,255,255,0.6); border-radius: 2px; }
+        .overlay-text-box .resize-handle:hover { background: rgba(255,255,255,0.9); }
+        .overlay-text-box[data-target^="mo-"] { white-space: normal; max-width: 88%; word-break: keep-all; line-height: 1.2; }
+        .image-loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; gap: 1rem; }
+        .image-loading-overlay.visible { display: flex; }
+        .image-loading-overlay .spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #4f46e5; border-radius: 50%; animation: spin 0.9s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 overflow-y-auto overflow-x-hidden min-h-screen">
+
+    <!-- 이미지 생성 중 전역 로딩 오버레이 -->
+    <div id="imageLoadingOverlay" class="image-loading-overlay" aria-hidden="true">
+        <div class="spinner" role="presentation"></div>
+        <p class="text-lg font-semibold text-indigo-600">AI 디자이너가 고화질 시안을 그리고 있습니다...</p>
+    </div>
 
     <div id="dashboard" class="flex flex-col h-screen flex-shrink-0 overflow-hidden">
         <header class="w-full bg-white border-b z-10 shrink-0">
@@ -81,7 +99,10 @@
                         <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="A" data-variant="MO">MO</button>
                     </div>
                 </div>
-                <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="B">
+                <div class="template-card template-card--preparing relative bg-gray-100 rounded-lg p-4 border-2 border-transparent transition-all duration-200 opacity-75 cursor-not-allowed pointer-events-none" data-template="B">
+                    <div class="absolute inset-0 rounded-lg bg-gray-200/80 flex items-center justify-center z-10 pointer-events-auto">
+                        <span class="text-sm font-bold text-gray-600">준비중</span>
+                    </div>
                     <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </div>
@@ -95,7 +116,10 @@
                         <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="B" data-variant="MO">MO</button>
                     </div>
                 </div>
-                <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="C">
+                <div class="template-card template-card--preparing relative bg-gray-100 rounded-lg p-4 border-2 border-transparent transition-all duration-200 opacity-75 cursor-not-allowed pointer-events-none" data-template="C">
+                    <div class="absolute inset-0 rounded-lg bg-gray-200/80 flex items-center justify-center z-10 pointer-events-auto">
+                        <span class="text-sm font-bold text-gray-600">준비중</span>
+                    </div>
                     <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </div>
@@ -109,7 +133,10 @@
                         <button type="button" class="template-variant px-2.5 py-1 text-xs rounded text-gray-500 hover:bg-gray-100" data-template="C" data-variant="MO">MO</button>
                     </div>
                 </div>
-                <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md" data-template="D">
+                <div class="template-card template-card--preparing relative bg-gray-100 rounded-lg p-4 border-2 border-transparent transition-all duration-200 opacity-75 cursor-not-allowed pointer-events-none" data-template="D">
+                    <div class="absolute inset-0 rounded-lg bg-gray-200/80 flex items-center justify-center z-10 pointer-events-auto">
+                        <span class="text-sm font-bold text-gray-600">준비중</span>
+                    </div>
                     <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white hidden template-check">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </div>
@@ -139,15 +166,35 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">참조 이미지 첨부</label>
-                    <div class="w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 cursor-pointer">
+                    <div id="referenceImageZone" class="w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 cursor-pointer transition-colors">
+                        <input type="file" id="referenceImageInput" accept="image/*" class="hidden">
                         <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
-                        <span class="text-xs">이미지를 드래그하거나 클릭하세요</span>
+                        <span id="referenceImageLabel" class="text-xs">이미지를 드래그하거나 클릭하세요</span>
                     </div>
+                </div>
+                <div id="aiModeSection">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">AI 생성 모드</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="aiGenerateMode" value="similar" class="w-4 h-4 text-indigo-600" disabled>
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">유사 재생성</span> — 구도/포즈 유지, 브랜드 스타일로 재창조</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="aiGenerateMode" value="cutout" class="w-4 h-4 text-indigo-600" disabled>
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">누끼/배경교체</span> — 모델 고정, 배경만 브랜드 컨셉으로</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="aiGenerateMode" value="mood" class="w-4 h-4 text-indigo-600" disabled>
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">분위기 참조</span> — 색감/느낌만 참고하여 자유 생성</span>
+                        </label>
+                    </div>
+                    <p id="aiModeHint" class="mt-1.5 text-xs text-gray-400">참조 이미지를 첨부하면 모드를 선택할 수 있습니다.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">기획 의도 및 강조점</label>
                     <textarea id="campaignIntent" class="w-full border rounded-lg p-3 h-24 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="예: 신규 회원 가입 혜택을 가장 크게 보여줘."></textarea>
                 </div>
+                <p id="generateStatus" class="text-sm text-indigo-600 min-h-[1.5rem] py-1"></p>
                 <button id="generateButton" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg">
                     AI 시안 생성하기 ↓
                 </button>
@@ -156,29 +203,99 @@
     </main>
     </div>
 
-    <div id="result" class="min-h-screen w-full bg-indigo-900 p-12 flex flex-col items-center justify-center text-white">
-        <div class="max-w-4xl w-full">
-            <h2 class="text-3xl font-bold mb-8 border-b border-indigo-400 pb-4">AI 생성 기획전 시안</h2>
-            <div class="grid grid-cols-2 gap-12">
-                <div class="space-y-6">
-                    <div>
-                        <span class="text-indigo-300 text-sm font-bold uppercase tracking-widest">Headline</span>
-                        <p class="text-4xl font-extrabold leading-tight">로딩 중이거나 데이터를 입력하면 여기에 생성된 문구가 나타납니다.</p>
+    <div id="result" class="min-h-screen w-full bg-indigo-50/60 border-t-2 border-indigo-200 p-4 md:p-6 scroll-mt-4">
+        <div class="grid grid-cols-12 gap-0 w-full max-w-full">
+            <div class="col-span-12 mb-4">
+                <h2 class="text-2xl font-bold text-gray-800 border-b border-indigo-300 pb-3">AI 생성 기획전 시안</h2>
+            </div>
+
+            <!-- 좌+중앙: 시안 갤러리 (col-span-8) — 비율 유지, 텍스트 편집과 간격 확보 -->
+            <div class="col-span-12 lg:col-span-8 flex flex-col min-h-0 pr-0 lg:pr-6">
+                <div class="flex flex-row items-center justify-start gap-4 h-[440px] min-h-[440px] max-w-full rounded-xl border border-indigo-200/80 bg-white shadow-sm overflow-x-auto overflow-y-hidden p-4">
+                    <div id="resultMoCapture" class="relative overflow-hidden rounded-lg flex-shrink-0 h-full w-auto" style="aspect-ratio: 2304/3500;">
+                        <img id="resultMoImage" src="" alt="MO 시안" class="absolute inset-0 w-full h-full object-cover object-center hidden">
+                        <p id="resultMoPlaceholder" class="absolute inset-0 flex items-center justify-center text-gray-500 py-12 px-6 text-center text-sm bg-gray-100">키워드 선택 후 AI 시안 생성하기를 누르세요.</p>
+                        <div id="resultMoOverlay" class="absolute inset-0 bg-gradient-to-b from-black/30 to-transparent hidden" style="pointer-events:none">
+                            <div class="overlay-text-box" data-target="mo-brand" style="pointer-events:auto; left:0; top:0;"><span id="resultMoBrand" class="font-bold text-white/95 tracking-wide">DV 26SS 컬렉션</span><span class="resize-handle" title="크기 조절"></span></div>
+                            <div class="overlay-text-box" data-target="mo-keyword" style="pointer-events:auto; left:0; top:0;"><span id="resultMoKeyword" class="font-black text-white tracking-tight uppercase leading-tight break-words">키워드</span><span class="resize-handle" title="크기 조절"></span></div>
+                        </div>
                     </div>
-                    <div>
-                        <span class="text-indigo-300 text-sm font-bold uppercase tracking-widest">Sub-copy</span>
-                        <p class="text-xl text-indigo-100">기획전의 상세 내용과 이벤트 문구가 여기에 배치됩니다.</p>
+                    <div id="resultPcCapture" class="relative overflow-hidden rounded-lg flex-shrink-0 h-full w-auto" style="aspect-ratio: 3840/1760;">
+                        <img id="resultPcImage" src="" alt="PC 시안" class="absolute inset-0 w-full h-full object-cover object-center hidden">
+                        <p id="resultPcPlaceholder" class="absolute inset-0 flex items-center justify-center text-gray-500 py-12 px-6 text-center text-sm bg-gray-100">키워드 선택 후 AI 시안 생성하기를 누르세요.</p>
+                        <div id="resultPcOverlay" class="absolute inset-0 bg-gradient-to-b from-black/30 to-transparent hidden" style="pointer-events:none">
+                            <div class="overlay-text-box" data-target="pc-brand" style="pointer-events:auto; left:0; top:0;"><span id="resultPcBrand" class="font-bold text-white/95 tracking-wide">DV 26SS 컬렉션</span><span class="resize-handle" title="크기 조절"></span></div>
+                            <div class="overlay-text-box" data-target="pc-keyword" style="pointer-events:auto; left:0; top:0;"><span id="resultPcKeyword" class="font-black text-white tracking-tight uppercase leading-tight break-words">키워드</span><span class="resize-handle" title="크기 조절"></span></div>
+                        </div>
                     </div>
-                </div>
-                <div class="bg-white/10 rounded-2xl aspect-[3/4] flex items-center justify-center border border-white/20">
-                    <p class="text-indigo-200">레이아웃 가이드 시각화 영역</p>
                 </div>
             </div>
-            <button onclick="window.scrollTo(0,0);" class="mt-12 text-indigo-300 underline hover:text-white">다시 설정하러 가기</button>
+
+            <!-- 우측: 컨트롤 패널 (col-span-4) — 상단 3번(col-span-4)과 가로 동일 -->
+            <div class="col-span-12 lg:col-span-4 p-4 min-h-0 overflow-y-auto bg-white border-l border-gray-200 flex flex-col gap-6">
+                <h3 class="text-base font-bold text-gray-700">텍스트 편집</h3>
+                <div class="rounded-lg bg-amber-50 border border-amber-200/80 px-3 py-2 mb-3">
+                    <p class="text-xs text-amber-800 font-medium">문구가 시안에서 잘 보이려면 짧게 쓰세요.</p>
+                    <p class="text-xs text-amber-700 mt-0.5">상단 문구 10자 내외, 메인 문구 15자 내외(영문이면 3~4단어) 권장.</p>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">상단 문구</label>
+                        <input type="text" id="editBrand" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="예: DV 26SS 컬렉션" maxlength="20">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">메인 문구</label>
+                        <input type="text" id="editKeyword" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="예: SPRING IN QUIET LIGHT" maxlength="25">
+                    </div>
+                    <div class="space-y-2">
+                        <p class="text-sm font-medium text-gray-700">문구 크기 (px)</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-0.5">MO 상단</label>
+                                <input type="number" id="editMoBrandSize" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm" min="8" max="72" value="14" placeholder="8~72">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-0.5">MO 메인</label>
+                                <input type="number" id="editMoKeywordSize" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm" min="8" max="72" value="28" placeholder="8~72">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-0.5">PC 상단</label>
+                                <input type="number" id="editPcBrandSize" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm" min="8" max="72" value="16" placeholder="8~72">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-0.5">PC 메인</label>
+                                <input type="number" id="editPcKeywordSize" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm" min="8" max="72" value="36" placeholder="8~72">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-gray-700 mb-2">디렉션 & 재생성</h3>
+                    <textarea id="resultFeedback" rows="4" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-800 text-sm placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 outline-none resize-y min-h-[100px]" placeholder="자연어 피드백 입력 (예: 배경을 더 밝게, 톤 다운 등)"></textarea>
+                    <div class="mt-2 flex justify-end">
+                        <button type="button" id="regenerateImageBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium border border-indigo-600">이미지 재생성</button>
+                    </div>
+                </div>
+                <div class="mt-auto pt-4 border-t border-gray-200">
+                    <h3 class="text-base font-bold text-gray-700 mb-2">다운로드</h3>
+                    <div class="flex flex-col gap-2">
+                        <button type="button" id="downloadMoBtn" class="w-full py-2.5 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">MO 시안 저장 (PNG)</button>
+                        <button type="button" id="downloadPcBtn" class="w-full py-2.5 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">PC 시안 저장 (PNG)</button>
+                        <button type="button" id="downloadAllBtn" class="w-full py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 border border-indigo-600 rounded-lg transition-colors">모든 시안 압축 다운로드</button>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <button onclick="window.scrollTo(0,0);" class="mt-8 text-indigo-600 underline hover:text-indigo-800 text-sm font-medium">다시 설정하러 가기</button>
     </div>
 
     <script>
+        // ========== API 및 테스트 모드 (최상단) ==========
+        function getGeminiApiKey() { return 'AIzaSyDqoWOtsSfhu3-cUvfxFqqZnkIvuUOK1mQ'; }
+        function getFalApiKey() { return 'a0eec544-5fd2-4ae8-9d86-fe56df3c9013:ff5988995ef98d6c11596cb57f3d6028'; }
+        const IS_TEST_MODE = false;
+        
         // 선택된 키워드를 저장할 변수
         let selectedKeyword = null;
         // 트렌드 키워드 목록 (검색량 내림차순) — 로드 후 AI 제안에 사용
@@ -189,6 +306,180 @@
         let selectedTemplate = 'A';
         // 선택된 레이아웃 (PC/MO)
         let selectedVariant = 'PC';
+        
+        // 브랜드 디자인 DNA·철학 — AI 이미지/텍스트 생성 시 절대 원칙
+        const BRAND_KNOWLEDGE = {
+            DV: {
+                fullName: "Duvetica",
+                philosophy: "La Bella Vita (인생을 즐기는 이탈리아인의 삶)",
+                coreValues: ["Premium Lifestyle", "Joyful", "Colorful", "Ethical Luxury"],
+                visualIdentity: {
+                    mood: "세련된 이탈리안 감성, 유니크한 컬러감, 프리미엄한 볼륨감",
+                    background: "모던한 건축물, 고급스러운 휴양지, 혹은 제품 색상을 강조하는 미니멀한 배경",
+                    lighting: "유광(Glossy) 소재의 질감을 살리는 선명하고 고급스러운 빛"
+                },
+                textStyle: "화이트 볼드 산세리프, 상단 중앙 또는 여백을 활용한 배치"
+            },
+            ST: {
+                fullName: "Sergio Tacchini",
+                philosophy: "Tennis Heritage & Italian Classic (테니스 유산과 클래식의 조화)",
+                coreValues: ["Sporty Elegance", "Classic Silhouette", "Active Lifestyle", "Authentic"],
+                visualIdentity: {
+                    mood: "우아한 테니스 코트 헤리티지, 클래식 액티브웨어, 정교한 실루엣",
+                    background: "프리미엄 테니스 클럽, 클래식한 코트, 우아한 스포츠 라운지",
+                    lighting: "자연스럽고 화사한 햇살, 클래식하고 깨끗한 톤"
+                },
+                textStyle: "클래식하고 세련된 폰트, 좌측 중앙 또는 안정적인 대칭 배치"
+            }
+        };
+        
+        // 참조 이미지 업로드 시 구도 설명 (사진 업로드 기능 연동 시 설정)
+        let referenceImageComposition = '';
+        let hasReferenceImage = false;
+        let selectedAiMode = 'mood';
+        
+        // 프롬프트 엔진: 키워드 선두 + 모드별 문구 + 브랜드 DNA (나노바나나용 영어 묘사문)
+        function buildImagePrompt(brandKey, keyword, campaignIntent, referenceDescription, mode) {
+            var brand = BRAND_KNOWLEDGE[brandKey];
+            if (!brand) return '';
+            var v = brand.visualIdentity;
+            var values = (brand.coreValues || []).join(', ');
+            var brandName = brand.fullName || brandKey;
+            var kw = (keyword || '').trim();
+            var ref = (referenceDescription || '').trim();
+            mode = mode || (ref ? 'similar' : 'mood');
+            
+            var keywordLead = 'Highly detailed, ' + (kw ? kw + ' core aesthetic. ' : '') + (kw ? 'The image must be dominated by the "' + kw + '" mood and atmosphere. ' : '');
+            var brandBlock = 'Brand: ' + brandName + '. ' + (v.mood ? 'Style: ' + v.mood + '. ' : '') + (v.background ? 'Background: ' + v.background + '. ' : '') + (v.lighting ? 'Lighting: ' + v.lighting + '. ' : '') + 'Core values: ' + values + '.';
+            var campaignLine = campaignIntent ? ' Campaign intent: ' + campaignIntent + '.' : '';
+            
+            var modePrompt = '';
+            if (mode === 'similar' && ref) {
+                modePrompt = 'A professional lookbook shot in ' + (kw || 'premium') + ' atmosphere, with ' + brandName + '\'s premium touch. Keep this exact pose and composition from the reference, re-create with brand style. Reference: ' + ref + '. ';
+            } else if (mode === 'cutout' && ref) {
+                modePrompt = 'Keep the subject/object exactly as in the reference, but change only the background to a ' + (kw || 'themed') + ' theme following ' + brandName + ' style. Reference composition: ' + ref + '. ';
+            } else {
+                modePrompt = (kw ? 'Free creation with strong ' + kw + ' mood and atmosphere. ' : '') + 'Reference only the color and feeling; ' + (v.mood || '') + '. ';
+            }
+            
+            return keywordLead + modePrompt + brandBlock + campaignLine;
+        }
+        
+        // 상태 메시지 표시
+        function setGenerateStatus(msg) {
+            var el = document.getElementById('generateStatus');
+            if (el) el.textContent = msg || '';
+        }
+        
+        // Gemini: v1beta + gemini-2.0-flash 단일 주소. 429 등 실패 시 알림 후 로컬 엔진 반환
+        function getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode) {
+            var brand = BRAND_KNOWLEDGE[brandKey];
+            return {
+                imagePrompt: buildImagePrompt(brandKey, keyword, campaignIntent, referenceDescription, aiMode),
+                brandCopy: (brand && brand.fullName) ? brand.fullName + ' 26SS 컬렉션' : (brandKey || '') + ' 26SS 컬렉션',
+                keywordCopy: keyword || ''
+            };
+        }
+        
+        async function callGeminiForPromptAndCopy(brandKey, keyword, campaignIntent, referenceDescription, aiMode) {
+            var brand = BRAND_KNOWLEDGE[brandKey];
+            if (!brand) return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
+            var refNote = referenceDescription ? '참조 이미지 구도/설명: ' + referenceDescription : '참조 이미지 없음';
+            var modeLabel = { similar: '유사 재생성(구도 유지)', cutout: '누끼/배경교체', mood: '분위기 참조' }[aiMode] || aiMode;
+            var promptText = [
+                'You are a creative director. Respond with ONLY a valid JSON object (no markdown) with exactly these keys: "imagePrompt" (string), "brandCopy" (string, very short brand/collection line for banner visibility: under 15 characters including spaces, e.g. "DV 26SS 컬렉션"), "keywordCopy" (string, short impactful headline: under 20 characters or 3-4 words in English so it fits MO/PC without truncation).',
+                '',
+                'IMAGE PROMPT RULES (critical):',
+                '1. Create a highly descriptive image prompt in English. Translate the user\'s keywords and detailed instructions into specific visual styles, textures, lighting, and background descriptions. Do not just use the keywords as text; turn them into a scene.',
+                '2. Keyword visualization: e.g. keyword "슈퍼볼" → include "Super Bowl core aesthetic, stadium lighting, sporty luxury mood"; "이탈리아 휴양지" → "Amalfi coast background, Mediterranean sunlight". Always convert the keyword into concrete visual mood and setting, not as on-screen text.',
+                '3. The user\'s detailed instructions (campaign intent and reference description below) must be the HIGHEST PRIORITY: put them at the very beginning of imagePrompt, translated into English. E.g. "유광 소재 강조" → "glossy material emphasis, reflective surfaces"; "어두운 배경" → "dark background, moody shadows".',
+                '',
+                'Brand (absolute rule): ' + JSON.stringify(brand),
+                'Keyword: ' + (keyword || ''),
+                'Campaign intent (MUST appear first in imagePrompt, in English): ' + (campaignIntent || ''),
+                refNote,
+                'AI mode: ' + modeLabel,
+                'Return only a JSON object.'
+            ].join('\n');
+            var apiKey = getGeminiApiKey();
+            var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+            var requestBody = {
+                contents: [{ parts: [{ text: promptText }] }],
+                generationConfig: { response_mime_type: 'application/json' }
+            };
+            try {
+                var res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                var data = await res.json();
+                console.log('Gemini API 응답 (gemini-2.0-flash):', data);
+                if (!res.ok) {
+                    console.error('Gemini API 에러:', 'response.status=' + res.status, 'response.statusText=' + res.statusText, data);
+                    if (res.status === 429) {
+                        alert('호출량이 많아 잠시 후 다시 시도해주세요 (로컬 엔진으로 자동 전환합니다)');
+                    }
+                    return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
+                }
+                if (data.error) {
+                    console.error('Gemini API 에러:', 'response.status=' + res.status, 'response.statusText=' + res.statusText, data.error);
+                    if (res.status === 429) {
+                        alert('호출량이 많아 잠시 후 다시 시도해주세요 (로컬 엔진으로 자동 전환합니다)');
+                    }
+                    return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
+                }
+                var text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : '';
+                if (!text) return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
+                text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+                var jsonMatch = text.match(/\{[\s\S]*\}/);
+                var parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+                console.log('Gemini 파싱 결과 (imagePrompt, brandCopy, keywordCopy):', parsed);
+                return {
+                    imagePrompt: (parsed.imagePrompt || '').trim() || buildImagePrompt(brandKey, keyword, campaignIntent, referenceDescription, aiMode),
+                    brandCopy: (parsed.brandCopy || '').trim() || (brand.fullName || brandKey) + ' 26SS 컬렉션',
+                    keywordCopy: (parsed.keywordCopy || '').trim() || (keyword || '')
+                };
+            } catch (e) {
+                console.error('Gemini 호출 예외:', e.message || e);
+                return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
+            }
+        }
+        
+        // fal.ai Flux 이미지 생성 (배너 비율). 상세 지침(detailInstructions)이 있으면 프롬프트 최우선에 반영
+        function fetchNanoBananaImage(prompt, mode, detailInstructions) {
+            var finalPrompt = (detailInstructions && (detailInstructions = String(detailInstructions).trim())) ? ('Critical visual requirements - apply first: ' + detailInstructions + '. ') + (prompt || '') : (prompt || 'fashion banner, high quality');
+            if (IS_TEST_MODE) {
+                console.log('최종 프롬프트:', finalPrompt);
+                var seed = encodeURIComponent(selectedKeyword || 'campaign');
+                return Promise.resolve('https://picsum.photos/seed/' + seed + '/1920/1080');
+            }
+            var apiKey = getFalApiKey();
+            return fetch('https://fal.run/fal-ai/flux/dev', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Key ' + apiKey
+                },
+                body: JSON.stringify({
+                    prompt: finalPrompt,
+                    image_size: 'landscape_16_9'
+                })
+            })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('fal.ai 응답 오류: ' + r.status);
+                    return r.json();
+                })
+                .then(function(data) {
+                    var url = (data && data.images && data.images[0] && data.images[0].url) ? data.images[0].url : null;
+                    if (!url) throw new Error('fal.ai 이미지 URL 없음');
+                    return url;
+                })
+                .catch(function(err) {
+                    console.error('fal.ai 이미지 생성 실패:', err);
+                    return 'https://picsum.photos/seed/fallback/1920/1080';
+                });
+        }
         
         // CSV 파싱 함수
         function parseCSV(csvText) {
@@ -539,6 +830,7 @@
             const cards = document.querySelectorAll('.template-card');
             cards.forEach(card => {
                 card.addEventListener('click', function() {
+                    if (this.classList.contains('template-card--preparing') || this.dataset.template !== 'A') return;
                     const template = this.dataset.template;
                     selectedTemplate = template;
 
@@ -604,40 +896,313 @@
             }
         }
         
-        // AI 시안 생성 버튼 클릭 이벤트
+        // AI 시안 생성 버튼 클릭 이벤트 (Gemini → 카피 반영 → 이미지 URL → textStyle 배치)
         function setupGenerateButton() {
-            const generateButton = document.getElementById('generateButton');
-            generateButton.addEventListener('click', function() {
-                const campaignIntent = document.getElementById('campaignIntent').value;
-
-                // 필수 선택값 체크
+            var generateButton = document.getElementById('generateButton');
+            generateButton.addEventListener('click', async function() {
+                var campaignIntent = document.getElementById('campaignIntent').value;
                 if (!selectedKeyword || !selectedTemplate) {
                     alert('키워드와 템플릿을 선택해주세요.');
                     return;
                 }
+                var modeRadios = document.querySelectorAll('input[name="aiGenerateMode"]');
+                var aiMode = 'mood';
+                modeRadios.forEach(function(r) { if (r.checked) aiMode = r.value; });
+                selectedAiMode = aiMode;
                 
-                // 선택된 정보 수집 (템플릿 + PC/MO)
-                const templateLabel = selectedTemplate + ' (' + selectedVariant + '형)';
-                const selectedData = {
-                    브랜드: selectedBrand,
-                    키워드: selectedKeyword,
-                    템플릿: selectedTemplate,
-                    레이아웃: selectedVariant,
-                    기획의도: campaignIntent || '입력되지 않음'
-                };
+                var btn = this;
+                var origText = btn.textContent;
+                btn.disabled = true;
+                setGenerateStatus('Gemini가 브랜드를 분석하여 프롬프트를 작성 중입니다...');
                 
-                // 콘솔에 출력
-                console.log('=== AI 시안 생성 요청 ===');
-                console.log('선택된 브랜드:', selectedData.브랜드);
-                console.log('선택된 키워드:', selectedData.키워드);
-                console.log('선택된 템플릿:', selectedData.템플릿, selectedData.레이아웃);
-                console.log('기획 의도:', selectedData.기획의도);
+                var geminiResult = { imagePrompt: '', brandCopy: '', keywordCopy: '' };
+                try {
+                    geminiResult = await callGeminiForPromptAndCopy(selectedBrand, selectedKeyword, campaignIntent, referenceImageComposition, aiMode);
+                } catch (e) {
+                    console.warn(e);
+                    geminiResult.imagePrompt = buildImagePrompt(selectedBrand, selectedKeyword, campaignIntent, referenceImageComposition, aiMode);
+                    geminiResult.brandCopy = (BRAND_KNOWLEDGE[selectedBrand] && BRAND_KNOWLEDGE[selectedBrand].fullName) ? BRAND_KNOWLEDGE[selectedBrand].fullName + ' 26SS 컬렉션' : selectedBrand + ' 26SS 컬렉션';
+                    geminiResult.keywordCopy = selectedKeyword;
+                }
                 
-                // Alert 창에 표시
-                alert(`선택된 정보:\n\n브랜드: ${selectedData.브랜드}\n키워드: ${selectedData.키워드}\n템플릿: ${templateLabel}\n기획 의도: ${selectedData.기획의도}`);
+                var brandCopy = (geminiResult.brandCopy || '').trim() || selectedBrand + ' 26SS 컬렉션';
+                var keywordCopy = (geminiResult.keywordCopy || '').trim() || selectedKeyword;
+                document.getElementById('resultMoBrand').textContent = brandCopy;
+                document.getElementById('resultMoKeyword').textContent = keywordCopy;
+                document.getElementById('resultPcBrand').textContent = brandCopy;
+                document.getElementById('resultPcKeyword').textContent = keywordCopy;
+                var editBrandEl = document.getElementById('editBrand');
+                var editKeywordEl = document.getElementById('editKeyword');
+                if (editBrandEl) editBrandEl.value = brandCopy;
+                if (editKeywordEl) editKeywordEl.value = keywordCopy;
                 
-                // 결과 영역으로 스크롤
-                document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+                setGenerateStatus('AI 디자이너가 고화질 시안을 그리고 있습니다...');
+                overlayInited['mo-brand'] = overlayInited['mo-keyword'] = overlayInited['pc-brand'] = overlayInited['pc-keyword'] = false;
+                console.log('imagePrompt (키워드·상세지침 반영 확인):', geminiResult.imagePrompt);
+                var loadingEl = document.getElementById('imageLoadingOverlay');
+                if (loadingEl) { loadingEl.classList.add('visible'); loadingEl.setAttribute('aria-hidden', 'false'); }
+                var imageSrc;
+                try {
+                    imageSrc = await fetchNanoBananaImage(geminiResult.imagePrompt, aiMode, campaignIntent);
+                } finally {
+                    if (loadingEl) { loadingEl.classList.remove('visible'); loadingEl.setAttribute('aria-hidden', 'true'); }
+                }
+                var moImg = document.getElementById('resultMoImage');
+                var pcImg = document.getElementById('resultPcImage');
+                var moPh = document.getElementById('resultMoPlaceholder');
+                var pcPh = document.getElementById('resultPcPlaceholder');
+                var moOverlay = document.getElementById('resultMoOverlay');
+                var pcOverlay = document.getElementById('resultPcOverlay');
+                function showMo() {
+                    moImg.classList.remove('hidden');
+                    moPh.classList.add('hidden');
+                    moOverlay.classList.remove('hidden');
+                    setTimeout(function() { initOverlayPositions(); }, 50);
+                }
+                function showPc() {
+                    pcImg.classList.remove('hidden');
+                    pcPh.classList.add('hidden');
+                    pcOverlay.classList.remove('hidden');
+                    setTimeout(function() { initOverlayPositions(); }, 50);
+                }
+                function hideMo() {
+                    moImg.classList.add('hidden');
+                    moPh.classList.remove('hidden');
+                    moOverlay.classList.add('hidden');
+                }
+                function hidePc() {
+                    pcImg.classList.add('hidden');
+                    pcPh.classList.remove('hidden');
+                    pcOverlay.classList.add('hidden');
+                }
+                moImg.onload = showMo;
+                moImg.onerror = hideMo;
+                pcImg.onload = showPc;
+                pcImg.onerror = hidePc;
+                moImg.crossOrigin = pcImg.crossOrigin = 'anonymous';
+                moImg.src = imageSrc;
+                pcImg.src = imageSrc;
+                
+                setGenerateStatus('');
+                btn.disabled = false;
+                btn.textContent = origText;
+                var resultEl = document.getElementById('result');
+                requestAnimationFrame(function() {
+                    var y = resultEl.getBoundingClientRect().top + window.pageYOffset - 16;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                });
+            });
+        }
+        
+        // 시안 다운로드: 파일명에 쓸 수 없는 문자 제거
+        function sanitizeFilename(str) {
+            return String(str).replace(/[/\\:*?"<>|\s]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || '시안';
+        }
+        
+        // MO 시안 PNG 저장
+        function downloadMoImage() {
+            if (!selectedKeyword || !selectedBrand) { alert('먼저 키워드를 선택하고 AI 시안 생성하기를 실행해주세요.'); return; }
+            var el = document.getElementById('resultMoCapture');
+            if (!el || typeof html2canvas === 'undefined') { alert('다운로드 도구를 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+            var brand = selectedBrand === 'DV' ? 'DV' : 'ST';
+            var name = sanitizeFilename(brand) + '_' + sanitizeFilename(selectedKeyword) + '_MO.png';
+            html2canvas(el, { useCORS: true, scale: 2, backgroundColor: null }).then(function(canvas) {
+                var a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = name;
+                a.click();
+            }).catch(function(err) { console.error(err); alert('이미지 저장에 실패했습니다.'); });
+        }
+        
+        // PC 시안 PNG 저장
+        function downloadPcImage() {
+            if (!selectedKeyword || !selectedBrand) { alert('먼저 키워드를 선택하고 AI 시안 생성하기를 실행해주세요.'); return; }
+            var el = document.getElementById('resultPcCapture');
+            if (!el || typeof html2canvas === 'undefined') { alert('다운로드 도구를 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+            var brand = selectedBrand === 'DV' ? 'DV' : 'ST';
+            var name = sanitizeFilename(brand) + '_' + sanitizeFilename(selectedKeyword) + '_PC.png';
+            html2canvas(el, { useCORS: true, scale: 2, backgroundColor: null }).then(function(canvas) {
+                var a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = name;
+                a.click();
+            }).catch(function(err) { console.error(err); alert('이미지 저장에 실패했습니다.'); });
+        }
+        
+        // MO+PC 압축 다운로드
+        function downloadAllImages() {
+            if (!selectedKeyword || !selectedBrand) { alert('먼저 키워드를 선택하고 AI 시안 생성하기를 실행해주세요.'); return; }
+            if (typeof JSZip === 'undefined' || typeof html2canvas === 'undefined') { alert('다운로드 도구를 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+            var brand = selectedBrand === 'DV' ? 'DV' : 'ST';
+            var base = sanitizeFilename(brand) + '_' + sanitizeFilename(selectedKeyword);
+            var zip = new JSZip();
+            Promise.all([
+                html2canvas(document.getElementById('resultMoCapture'), { useCORS: true, scale: 2, backgroundColor: null }),
+                html2canvas(document.getElementById('resultPcCapture'), { useCORS: true, scale: 2, backgroundColor: null })
+            ]).then(function(results) {
+                zip.file(base + '_MO.png', results[0].toDataURL('image/png').split(',')[1], { base64: true });
+                zip.file(base + '_PC.png', results[1].toDataURL('image/png').split(',')[1], { base64: true });
+                return zip.generateAsync({ type: 'blob' });
+            }).then(function(blob) {
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = base + '_시안.zip';
+                a.click();
+                URL.revokeObjectURL(a.href);
+            }).catch(function(err) { console.error(err); alert('압축 다운로드에 실패했습니다.'); });
+        }
+        
+        // 시안 텍스트 오버레이: 위치·크기 상태 (px). html2canvas 캡처 시 이 값이 그대로 반영됨
+        var overlayState = {
+            'mo-brand': { x: 0, y: 0, fontSize: 14 },
+            'mo-keyword': { x: 0, y: 0, fontSize: 28 },
+            'pc-brand': { x: 0, y: 0, fontSize: 16 },
+            'pc-keyword': { x: 0, y: 0, fontSize: 36 }
+        };
+        var overlayInited = { 'mo-brand': false, 'mo-keyword': false, 'pc-brand': false, 'pc-keyword': false };
+        
+        function getOverlayBox(target) { return document.querySelector('.overlay-text-box[data-target="' + target + '"]'); }
+        function getTextSpan(box) { return box ? box.querySelector('span:not(.resize-handle)') : null; }
+        function getCaptureFor(target) { return target.indexOf('mo') === 0 ? document.getElementById('resultMoCapture') : document.getElementById('resultPcCapture'); }
+        
+        function applyOverlayState(target) {
+            var box = getOverlayBox(target);
+            if (!box) return;
+            var s = overlayState[target];
+            box.style.left = s.x + 'px';
+            box.style.top = s.y + 'px';
+            var textSpan = getTextSpan(box);
+            if (textSpan) textSpan.style.fontSize = (s.fontSize + 'px');
+        }
+        
+        function updatePanelFromState(target) {
+            var s = overlayState[target];
+            var idMap = { 'mo-brand': 'editMoBrandSize', 'mo-keyword': 'editMoKeywordSize', 'pc-brand': 'editPcBrandSize', 'pc-keyword': 'editPcKeywordSize' };
+            var el = document.getElementById(idMap[target]);
+            if (el) el.value = s.fontSize;
+        }
+        
+        // 디폴트 배치: MO 가운데 상단(이미지 안으로 엄격 제한), PC 좌측 세로 중앙
+        function getTextStyleDefaults(brandKey) {
+            var brand = BRAND_KNOWLEDGE[brandKey];
+            var isDV = brandKey === 'DV';
+            return {
+                'mo-brand':  { centerHoriz: true, yRatio: 0.05, fs: 13, fontWeight: isDV ? '600' : '600' },
+                'mo-keyword': { centerHoriz: true, yRatio: 0.14, fs: 26, fontWeight: isDV ? '700' : '700' },
+                'pc-brand':  { leftAlign: true, leftMarginRatio: 0.08, yRatio: 0.38, fs: 15, fontWeight: isDV ? '600' : '600' },
+                'pc-keyword': { leftAlign: true, leftMarginRatio: 0.08, yRatio: 0.48, fs: 32, fontWeight: isDV ? '700' : '700' }
+            };
+        }
+        
+        function initOverlayPositions() {
+            var brandKey = selectedBrand || 'DV';
+            var defaultsMap = getTextStyleDefaults(brandKey);
+            var targets = ['mo-brand','mo-keyword','pc-brand','pc-keyword'];
+            targets.forEach(function(target) {
+                if (overlayInited[target]) return;
+                var box = getOverlayBox(target);
+                var container = getCaptureFor(target);
+                if (!box || !container) return;
+                var rect = container.getBoundingClientRect();
+                var w = rect.width, h = rect.height;
+                var d = defaultsMap[target] || { yRatio: 0.1, fs: 16, fontWeight: '600' };
+                overlayState[target].fontSize = Math.max(8, Math.min(72, d.fs));
+                overlayInited[target] = true;
+                var textSpan = getTextSpan(box);
+                if (textSpan) textSpan.style.fontWeight = d.fontWeight || '600';
+                overlayState[target].x = 0;
+                overlayState[target].y = h * d.yRatio;
+                applyOverlayState(target);
+                var boxW = box.offsetWidth || 80;
+                var boxH = box.offsetHeight || 24;
+                var margin = 8;
+                var y = Math.max(0, Math.min(h - boxH - margin, h * d.yRatio));
+                overlayState[target].y = y;
+                var x;
+                if (d.centerHoriz) {
+                    x = (w - boxW) / 2;
+                    x = Math.max(margin, Math.min(w - boxW - margin, x));
+                } else if (d.leftAlign) {
+                    x = w * (d.leftMarginRatio != null ? d.leftMarginRatio : 0.08);
+                    x = Math.max(margin, Math.min(w - boxW - margin, x));
+                } else if (d.rightAlign) {
+                    var rMargin = w * (d.rightMarginRatio != null ? d.rightMarginRatio : 0.08);
+                    x = Math.max(margin, w - boxW - rMargin);
+                } else {
+                    x = Math.max(margin, Math.min(w - boxW - margin, w * (d.xRatio != null ? d.xRatio : 0.05)));
+                }
+                overlayState[target].x = Math.max(0, Math.min(w - boxW - margin, x));
+                applyOverlayState(target);
+                updatePanelFromState(target);
+            });
+            var sizeIds = ['editMoBrandSize','editMoKeywordSize','editPcBrandSize','editPcKeywordSize'];
+            var stateKeys = ['mo-brand','mo-keyword','pc-brand','pc-keyword'];
+            stateKeys.forEach(function(k, i) {
+                var el = document.getElementById(sizeIds[i]);
+                if (el) el.value = overlayState[k].fontSize;
+            });
+        }
+        
+        function setupOverlayInteract() {
+            if (typeof interact === 'undefined') return;
+            interact('.overlay-text-box').draggable({
+                ignoreFrom: '.resize-handle',
+                listeners: {
+                    start: function(e) {
+                        e.target.classList.add('dragging');
+                    },
+                    move: function(e) {
+                        var target = e.target.getAttribute('data-target');
+                        var container = getCaptureFor(target);
+                        if (!container) return;
+                        var rect = container.getBoundingClientRect();
+                        var state = overlayState[target];
+                        state.x += e.dx;
+                        state.y += e.dy;
+                        state.x = Math.max(0, Math.min(rect.width - (e.target.offsetWidth || 20), state.x));
+                        state.y = Math.max(0, Math.min(rect.height - (e.target.offsetHeight || 20), state.y));
+                        e.target.style.left = state.x + 'px';
+                        e.target.style.top = state.y + 'px';
+                        updatePanelFromState(target);
+                    },
+                    end: function(e) {
+                        e.target.classList.remove('dragging');
+                    }
+                }
+            }).on('tap', function(e) {
+                if (e.target.classList.contains('resize-handle')) e.stopPropagation();
+            });
+            
+            document.querySelectorAll('.resize-handle').forEach(function(handle) {
+                handle.addEventListener('mousedown', function(ev) {
+                    ev.preventDefault(); ev.stopPropagation();
+                    var box = handle.closest('.overlay-text-box');
+                    var key = box.getAttribute('data-target');
+                    var startY = ev.clientY; var startSize = overlayState[key].fontSize;
+                    function move(e) {
+                        var dy = e.clientY - startY;
+                        var next = Math.max(8, Math.min(72, startSize + Math.round(dy * 0.5)));
+                        overlayState[key].fontSize = next;
+                        getTextSpan(box).style.fontSize = next + 'px';
+                        updatePanelFromState(key);
+                    }
+                    function up() {
+                        document.removeEventListener('mousemove', move);
+                        document.removeEventListener('mouseup', up);
+                    }
+                    document.addEventListener('mousemove', move);
+                    document.addEventListener('mouseup', up);
+                });
+            });
+            
+            var sizeInputs = { 'editMoBrandSize': 'mo-brand', 'editMoKeywordSize': 'mo-keyword', 'editPcBrandSize': 'pc-brand', 'editPcKeywordSize': 'pc-keyword' };
+            Object.keys(sizeInputs).forEach(function(id) {
+                var target = sizeInputs[id];
+                document.getElementById(id)?.addEventListener('input', function() {
+                    var v = Math.max(8, Math.min(72, parseInt(this.value, 10) || 14));
+                    overlayState[target].fontSize = v;
+                    applyOverlayState(target);
+                });
             });
         }
         
@@ -655,6 +1220,65 @@
             setupBrandSelection();
             setupTemplateSelection();
             setupGenerateButton();
+            (function setupReferenceImageAndAiMode() {
+                var zone = document.getElementById('referenceImageZone');
+                var input = document.getElementById('referenceImageInput');
+                var label = document.getElementById('referenceImageLabel');
+                var hint = document.getElementById('aiModeHint');
+                var radios = document.querySelectorAll('input[name="aiGenerateMode"]');
+                function setModeEnabled(enabled) {
+                    hasReferenceImage = !!enabled;
+                    radios.forEach(function(r) { r.disabled = !enabled; });
+                    if (hint) hint.textContent = enabled ? '모드를 선택한 뒤 AI 시안 생성하기를 누르세요.' : '참조 이미지를 첨부하면 모드를 선택할 수 있습니다.';
+                }
+                if (zone && input) {
+                    zone.addEventListener('click', function() { input.click(); });
+                    input.addEventListener('change', function() {
+                        if (this.files && this.files.length > 0) {
+                            referenceImageComposition = 'User-uploaded reference image; preserve its composition and subject.';
+                            if (label) { label.textContent = '첨부됨: ' + this.files[0].name; }
+                            zone.classList.add('border-indigo-300', 'bg-indigo-50/30');
+                            setModeEnabled(true);
+                            var first = document.querySelector('input[name="aiGenerateMode"][value="similar"]');
+                            if (first) { first.checked = true; selectedAiMode = 'similar'; }
+                        }
+                    });
+                }
+                document.querySelectorAll('input[name="aiGenerateMode"]').forEach(function(r) {
+                    r.addEventListener('change', function() { selectedAiMode = this.value; });
+                });
+                setModeEnabled(false);
+            })();
+            setupOverlayInteract();
+            document.getElementById('downloadMoBtn')?.addEventListener('click', downloadMoImage);
+            document.getElementById('downloadPcBtn')?.addEventListener('click', downloadPcImage);
+            document.getElementById('downloadAllBtn')?.addEventListener('click', downloadAllImages);
+            function syncResultTextFromInputs() {
+                var editB = document.getElementById('editBrand');
+                var editK = document.getElementById('editKeyword');
+                var rMoB = document.getElementById('resultMoBrand'); var rMoK = document.getElementById('resultMoKeyword');
+                var rPcB = document.getElementById('resultPcBrand'); var rPcK = document.getElementById('resultPcKeyword');
+                var brandVal = editB ? editB.value : '';
+                var keywordVal = editK ? editK.value : '';
+                if (rMoB) rMoB.textContent = brandVal || rMoB.textContent;
+                if (rMoK) rMoK.textContent = keywordVal || rMoK.textContent;
+                if (rPcB) rPcB.textContent = brandVal || rPcB.textContent;
+                if (rPcK) rPcK.textContent = keywordVal || rPcK.textContent;
+            }
+            ['editBrand','editKeyword'].forEach(function(id) {
+                document.getElementById(id)?.addEventListener('input', syncResultTextFromInputs);
+            });
+            document.getElementById('regenerateImageBtn')?.addEventListener('click', function() {
+                if (!selectedKeyword) { alert('먼저 키워드를 선택하고 시안을 생성해주세요.'); return; }
+                var moImg = document.getElementById('resultMoImage');
+                var pcImg = document.getElementById('resultPcImage');
+                var feedback = (document.getElementById('resultFeedback')?.value || '').trim();
+                var seedStr = selectedKeyword + (feedback ? '_' + feedback : '') + '_' + Date.now();
+                var safeSeed = encodeURIComponent(seedStr);
+                var imageSrc = 'https://picsum.photos/seed/' + safeSeed + '/1920/1080';
+                moImg.crossOrigin = pcImg.crossOrigin = 'anonymous';
+                moImg.src = pcImg.src = imageSrc;
+            });
         });
     </script>
 
