@@ -358,7 +358,7 @@
             var ref = (referenceDescription || '').trim();
             mode = mode || (ref ? 'similar' : 'mood');
             
-            var compositionRule = 'Composition: Wide shot. PC – The model must be strictly positioned on the far RIGHT. The LEFT half of the image must be a completely empty, minimalist background with no details, specifically designed to place text overlay. Ensure the head is not cropped. Vertical shot. MO – The model must be positioned in the BOTTOM 50% of the frame. The TOP 50% must be a clean, solid, or simple background space for text. Avoid any complex patterns or faces in the top half. ';
+            var compositionRule = '[Extreme Composition Rule]: PC – The main subject/person must be positioned on the FAR RIGHT 40% of the canvas. The LEFT 60% of the canvas must be an EMPTY, SOLID, or MINIMALIST background with absolutely NO subjects. This is for text placement. MO – The main subject/person must be positioned in the LOWER HALF (bottom 50%) of the vertical frame. The UPPER HALF (top 50%) must be a CLEAR EMPTY SPACE (like sky or a simple wall). The subject\'s face must be in the lower part of the image. ';
             var keywordLead = compositionRule + 'Highly detailed, ' + (kw ? kw + ' core aesthetic. ' : '') + (kw ? 'The image must be dominated by the "' + kw + '" mood and atmosphere. ' : '');
             var brandBlock = 'Brand: ' + brandName + '. ' + (v.mood ? 'Style: ' + v.mood + '. ' : '') + (v.background ? 'Background: ' + v.background + '. ' : '') + (v.lighting ? 'Lighting: ' + v.lighting + '. ' : '') + 'Core values: ' + values + '.';
             var campaignLine = campaignIntent ? ' Campaign intent: ' + campaignIntent + '.' : '';
@@ -404,9 +404,10 @@
                 '2. Keyword visualization: e.g. keyword "슈퍼볼" → include "Super Bowl core aesthetic, stadium lighting, sporty luxury mood"; "이탈리아 휴양지" → "Amalfi coast background, Mediterranean sunlight". Always convert the keyword into concrete visual mood and setting, not as on-screen text.',
                 '3. The user\'s detailed instructions (campaign intent and reference description below) must be the HIGHEST PRIORITY: put them at the very beginning of imagePrompt, translated into English. E.g. "유광 소재 강조" → "glossy material emphasis, reflective surfaces"; "어두운 배경" → "dark background, moody shadows".',
                 '4. COMPOSITION (CRITICAL – highest priority, must be at the very beginning of imagePrompt):',
-                '   - PC/horizontal: "Composition: Wide shot. The model must be strictly positioned on the far RIGHT. The LEFT half of the image must be a completely empty, minimalist background with no details, specifically designed to place text overlay. Ensure the head is not cropped."',
-                '   - MO/portrait: "Composition: Vertical shot. The model must be positioned in the BOTTOM 50% of the frame. The TOP 50% must be a clean, solid, or simple background space for text. Avoid any complex patterns or faces in the top half."',
-                '   IMPORTANT: Start your imagePrompt with these exact composition rules. This is the most critical requirement to ensure text readability.',
+                '   Start your imagePrompt with these EXACT phrases:',
+                '   - PC/horizontal: "[Extreme Composition Rule]: The main subject/person must be positioned on the FAR RIGHT 40% of the canvas. The LEFT 60% of the canvas must be an EMPTY, SOLID, or MINIMALIST background with absolutely NO subjects. This is for text placement."',
+                '   - MO/portrait: "[Extreme Composition Rule]: The main subject/person must be positioned in the LOWER HALF (bottom 50%) of the vertical frame. The UPPER HALF (top 50%) must be a CLEAR EMPTY SPACE (like sky or a simple wall). The subject\'s face must be in the lower part of the image."',
+                '   IMPORTANT: These are MANDATORY physical constraints. The AI image generator will receive a negative prompt to prevent violations.',
                 '',
                 'Brand (absolute rule): ' + JSON.stringify(brand),
                 'Keyword: ' + (keyword || ''),
@@ -460,13 +461,15 @@
             }
         }
         
-        // fal.ai Flux 이미지 생성 (배너 비율). 구도 지침이 프롬프트 최우선에 오도록 가중치 부여. seed 있으면 해당 시드로 생성(재생성 시 다른 결과용).
-        function fetchNanoBananaImage(prompt, mode, detailInstructions, seed) {
+        // fal.ai Flux 이미지 생성. PC용 가로형/MO용 세로형 구분, 구도 지침 강제, 부정 프롬프트 적용. seed 있으면 해당 시드로 생성(재생성 시 다른 결과용).
+        function fetchNanoBananaImage(prompt, mode, detailInstructions, seed, isMo) {
             var promptBase = prompt || 'fashion banner, high quality';
             var detailPart = (detailInstructions && (detailInstructions = String(detailInstructions).trim())) ? ('Critical visual requirements - apply first: ' + detailInstructions + '. ') : '';
             var finalPrompt = detailPart + promptBase;
             var apiKey = getFalApiKey();
-            var body = { prompt: finalPrompt, image_size: 'landscape_16_9' };
+            var negativePrompt = isMo ? 'face in top half, subject in upper part, head in upper third' : 'subject in center, subject on left, face in center, person covering left side';
+            var imageSize = isMo ? 'portrait_9_16' : 'landscape_16_9';
+            var body = { prompt: finalPrompt, image_size: imageSize, negative_prompt: negativePrompt };
             if (seed != null) body.seed = seed;
             return fetch('https://fal.run/fal-ai/flux/dev', {
                 method: 'POST',
@@ -986,7 +989,9 @@
                 if (loadingEl) { loadingEl.classList.add('visible'); loadingEl.setAttribute('aria-hidden', 'false'); }
                 var imageSrc;
                 try {
-                    imageSrc = await fetchNanoBananaImage(geminiResult.imagePrompt, aiMode, campaignIntent);
+                    var pcImageSrc = await fetchNanoBananaImage(geminiResult.imagePrompt, aiMode, campaignIntent, null, false);
+                    var moImageSrc = await fetchNanoBananaImage(geminiResult.imagePrompt, aiMode, campaignIntent, null, true);
+                    var imageSrc = pcImageSrc;
                 } finally {
                     if (loadingEl) { loadingEl.classList.remove('visible'); loadingEl.setAttribute('aria-hidden', 'true'); }
                 }
@@ -1023,9 +1028,9 @@
                 pcImg.onload = showPc;
                 pcImg.onerror = hidePc;
                 moImg.crossOrigin = pcImg.crossOrigin = 'anonymous';
-                moImg.src = imageSrc;
-                pcImg.src = imageSrc;
-                lastGeneratedImageUrl = imageSrc;
+                moImg.src = moImageSrc;
+                pcImg.src = pcImageSrc;
+                lastGeneratedImageUrl = pcImageSrc;
                 lastImagePrompt = geminiResult.imagePrompt;
                 lastDetailInstructions = campaignIntent || '';
                 lastAiMode = aiMode;
@@ -1144,12 +1149,13 @@
         function getTextSpan(box) { return box ? box.querySelector('span:not(.resize-handle)') : null; }
         function getCaptureFor(target) { return target.indexOf('mo') === 0 ? document.getElementById('resultMoCapture') : document.getElementById('resultPcCapture'); }
         
-        // 피그마용 SVG: 배경 이미지 Base64 + 텍스트는 각각 <text> 레이어로 분리
+        // 피그마용 SVG: 고정 해상도 viewBox, 비례 좌표 계산, text-anchor 정렬 보정
         async function buildSvgForFigma(variant) {
             var isMo = variant === 'mo';
             var captureId = isMo ? 'resultMoCapture' : 'resultPcCapture';
             var imgId = isMo ? 'resultMoImage' : 'resultPcImage';
             var targets = isMo ? ['mo-brand', 'mo-keyword'] : ['pc-brand', 'pc-keyword'];
+            // 고정 해상도 (Hard-coded ViewBox) - 소수점 없이 정확히
             var vbW = isMo ? 2304 : 3840;
             var vbH = isMo ? 3500 : 1760;
             var capture = document.getElementById(captureId);
@@ -1167,29 +1173,55 @@
                 return null;
             }
             var captureRect = capture.getBoundingClientRect();
-            var scaleX = vbW / captureRect.width;
-            var scaleY = vbH / captureRect.height;
+            var canvasW = captureRect.width;
+            var canvasH = captureRect.height;
+            var scaleX = vbW / canvasW;
+            var scaleY = vbH / canvasH;
+            var defsNodes = [];
+            var gradientNodes = [];
             var textNodes = [];
+            var defaultsMap = getTextStyleDefaults(selectedBrand || 'DV');
+            var gradientCounter = 0;
             for (var i = 0; i < targets.length; i++) {
                 var target = targets[i];
                 var state = overlayState[target];
                 var box = getOverlayBox(target);
                 var textSpan = getTextSpan(box);
                 var text = textSpan ? textSpan.textContent : '';
-                if (!state || !box) continue;
+                if (!state || !box || !textSpan) continue;
                 var boxRect = box.getBoundingClientRect();
-                var textRect = textSpan ? textSpan.getBoundingClientRect() : boxRect;
+                var textRect = textSpan.getBoundingClientRect();
+                var computedStyle = window.getComputedStyle(textSpan);
                 var relativeX = boxRect.left - captureRect.left;
                 var relativeY = boxRect.top - captureRect.top;
-                var x = relativeX * scaleX;
-                var y = (relativeY + (textRect.height || state.fontSize)) * scaleY;
-                var computedStyle = textSpan ? window.getComputedStyle(textSpan) : null;
-                var fs = computedStyle ? parseFloat(computedStyle.fontSize) * scaleY : Math.round(state.fontSize * scaleY);
-                var fontWeight = computedStyle ? computedStyle.fontWeight : 'bold';
-                var fillColor = computedStyle ? computedStyle.color : 'white';
-                textNodes.push('<text x="' + x + '" y="' + y + '" font-size="' + Math.round(fs) + '" fill="' + fillColor + '" font-weight="' + escapeXml(fontWeight) + '" font-family="' + (computedStyle ? escapeXml(computedStyle.fontFamily) : 'sans-serif') + '">' + escapeXml(text) + '</text>');
+                var xPercent = (relativeX / canvasW) * 100;
+                var yPercent = ((relativeY + textRect.height) / canvasH) * 100;
+                var x = Math.round((xPercent / 100) * vbW);
+                var y = Math.round((yPercent / 100) * vbH);
+                var fontSizePx = parseFloat(computedStyle.fontSize) || state.fontSize;
+                var fs = Math.round(fontSizePx * scaleY);
+                var fontWeight = computedStyle.fontWeight || 'bold';
+                var fillColor = computedStyle.color || 'white';
+                var fontFamily = computedStyle.fontFamily || 'sans-serif';
+                var d = defaultsMap[target] || {};
+                var textAnchor = d.centerHoriz ? 'middle' : (d.leftAlign ? 'start' : 'start');
+                if (d.centerHoriz) {
+                    var boxCenterX = relativeX + (boxRect.width / 2);
+                    x = Math.round((boxCenterX / canvasW) * vbW);
+                }
+                var textBoxW = boxRect.width;
+                var textBoxH = textRect.height;
+                var gradientBoxX = Math.round((relativeX / canvasW) * vbW);
+                var gradientBoxY = Math.round((relativeY / canvasH) * vbH);
+                var gradientBoxW = Math.round((textBoxW / canvasW) * vbW);
+                var gradientBoxH = Math.round((textBoxH / canvasH) * vbH);
+                var gradientId = 'gradient-' + gradientCounter++;
+                defsNodes.push('<linearGradient id="' + gradientId + '" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:rgba(0,0,0,0.3);stop-opacity:1" /><stop offset="100%" style="stop-color:rgba(0,0,0,0.1);stop-opacity:1" /></linearGradient>');
+                gradientNodes.push('<rect x="' + gradientBoxX + '" y="' + gradientBoxY + '" width="' + gradientBoxW + '" height="' + gradientBoxH + '" fill="url(#' + gradientId + ')"/>');
+                textNodes.push('<text x="' + x + '" y="' + y + '" font-size="' + fs + '" fill="' + fillColor + '" font-weight="' + escapeXml(fontWeight) + '" font-family="' + escapeXml(fontFamily) + '" text-anchor="' + textAnchor + '">' + escapeXml(text) + '</text>');
             }
-            var svg = '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ' + vbW + ' ' + vbH + '" width="' + vbW + '" height="' + vbH + '">\n  <image width="' + vbW + '" height="' + vbH + '" href="' + base64 + '"/>\n  ' + textNodes.join('\n  ') + '\n</svg>';
+            var defsSection = defsNodes.length > 0 ? '<defs>' + defsNodes.join('') + '</defs>' : '';
+            var svg = '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ' + vbW + ' ' + vbH + '" width="' + vbW + '" height="' + vbH + '">\n  ' + defsSection + '\n  <image x="0" y="0" width="' + vbW + '" height="' + vbH + '" href="' + base64 + '" preserveAspectRatio="xMidYMid slice"/>\n  ' + gradientNodes.join('\n  ') + '\n  ' + textNodes.join('\n  ') + '\n</svg>';
             return svg;
         }
         
@@ -1455,10 +1487,12 @@
                 if (loadingEl) { loadingEl.classList.add('visible'); loadingEl.setAttribute('aria-hidden', 'false'); }
                 try {
                     var newSeed = Math.floor(Math.random() * 2147483647);
-                    var imageSrc = await fetchNanoBananaImage(prompt, lastAiMode, feedback || lastDetailInstructions, newSeed);
-                    lastGeneratedImageUrl = imageSrc;
+                    var pcImageSrc = await fetchNanoBananaImage(prompt, lastAiMode, feedback || lastDetailInstructions, newSeed, false);
+                    var moImageSrc = await fetchNanoBananaImage(prompt, lastAiMode, feedback || lastDetailInstructions, newSeed + 1, true);
+                    lastGeneratedImageUrl = pcImageSrc;
                     moImg.crossOrigin = pcImg.crossOrigin = 'anonymous';
-                    moImg.src = pcImg.src = imageSrc;
+                    moImg.src = moImageSrc;
+                    pcImg.src = pcImageSrc;
                 } finally {
                     setGenerateStatus('');
                     setDevelopRegenDisabled(false);
