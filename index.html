@@ -94,7 +94,7 @@
                         <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
                         <span id="referenceImageLabel" class="text-xs">제품 이미지를 올리면 키워드와 기획의도에 맞는 배경에 합성합니다</span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1.5">또는 아래에 <strong>이미지 URL</strong>을 넣어도 됩니다 (FAL·Replicate 모두 URL 지원)</p>
+                    <p class="text-xs text-gray-500 mt-1.5">또는 아래에 <strong>이미지 URL</strong>을 넣어도 됩니다 (FAL·Photoroom 모두 URL 지원)</p>
                     <input type="url" id="referenceImageUrlInput" placeholder="https:// 예시 이미지 주소" class="mt-1.5 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
                 <div id="aiModeSection">
@@ -122,16 +122,11 @@
                             <input type="radio" name="imageApi" value="photoroom" class="w-4 h-4 text-indigo-600">
                             <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">Photoroom API</span> — AI 배경 생성 (FAL과 비교 테스트용)</span>
                         </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="imageApi" value="replicate" class="w-4 h-4 text-indigo-600">
-                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">Replicate API</span> — 서버 프록시 필요 (server.js 실행 필요)</span>
-                        </label>
                     </div>
-                    <p class="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠️ <strong>한도 초과(429)가 자주 나오는 이유:</strong> 결제 수단 없이 쓰면 <strong>분당 최대 6회</strong>만 허용됩니다. 시안 1회 = MO+PC 2회라서 1분에 2~3번만 생성 가능. 결제 추가 시 분당 600회로 완화됩니다. 429 나오면 35초 후 자동 재시도(1회)합니다.</p>
+                    <p class="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠️ <strong>한도 초과(429):</strong> FAL은 결제 없이 분당 제한 있음. 429 나오면 35초 후 자동 재시도(1회)합니다.</p>
                     <div id="serverStatus" class="text-xs mt-2 hidden">
                         <span id="serverStatusText" class="text-gray-500"></span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">Replicate API 사용 시: <code class="bg-gray-100 px-1 rounded">node server.js</code> 실행 후 사용하세요.</p>
                     <div class="mt-3 space-y-3">
                         <div>
                             <label for="geminiApiKeyInput" class="block text-sm font-medium text-gray-700 mb-1">Gemini API 키 <span class="text-gray-500 font-normal">(한 번 입력하면 이 브라우저에 저장됨)</span></label>
@@ -147,8 +142,7 @@
                         </div>
                     </div>
                     <p class="text-xs text-amber-700 mt-1.5 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
-                        💡 <strong>무료로 테스트하려면:</strong> <span class="font-medium text-indigo-700">FAL API</span>를 선택하세요. fal.ai 가입 후 크레딧으로 체험 가능. Replicate는 결제 수단 없이도 ‘Try for Free’로 제한적 체험 가능(분당 요청 수 제한 있음).
-                    </p>
+                        💡 <strong>무료로 테스트:</strong> <span class="font-medium text-indigo-700">FAL API</span>를 선택하세요. fal.ai 가입 후 크레딧으로 체험 가능. ‘’                    </p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">기획 의도 및 강조점</label>
@@ -340,10 +334,9 @@
 
     <script>
         // ========== 서버 없이 쓸 때: config.js 키로 브라우저에서 직접 호출. 서버 쓸 때: API_BASE 설정하면 /api/* 로 요청 ==========
-        var API_BASE = ''; // 서버 배포 시 여기 백엔드 URL 넣으면 Gemini/FAL/Replicate 모두 서버 경유
+        var API_BASE = ''; // 서버 배포 시 여기 백엔드 URL 넣으면 Gemini/FAL 서버 경유
         if (typeof getGeminiApiKey === 'undefined') { function getGeminiApiKey() { return ''; } }
         if (typeof getFalApiKey === 'undefined') { function getFalApiKey() { return ''; } }
-        if (typeof getReplicateApiKey === 'undefined') { function getReplicateApiKey() { return ''; } }
         if (typeof getPhotoroomApiKey === 'undefined') { function getPhotoroomApiKey() { return ''; } }
         var STORAGE_KEY_GEMINI = 'instant_campaign_gemini_key';
         var STORAGE_KEY_FAL = 'instant_campaign_fal_key';
@@ -936,258 +929,6 @@
                     console.error('❌ Photoroom API 실패 (' + imageType + '):', err && err.message);
                     throw err;
                 });
-        }
-        
-        // ——— 5. Replicate API 이미지 생성 (ControlNet으로 정확한 배경 교체) ———
-        function fetchReplicateImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl, retried) {
-            if (!API_BASE) {
-                return Promise.reject(new Error('Replicate는 서버(node server.js) 실행 후 사용할 수 있습니다. 지금은 FAL API를 선택하거나, 로컬에서 node server.js를 실행해 주세요.'));
-            }
-            var imageType = isMo ? 'MO' : 'PC';
-            if (retried) console.log('🟡 [진행 단계] Replicate API 재시도 중... (' + imageType + ')');
-            else console.log('🟡 [진행 단계] Replicate API 호출 중... (' + imageType + ' 이미지 생성)');
-            if (fusedPrompt && fusedPrompt.trim()) {
-                console.log('📝 Replicate에 전달하는 프롬프트:', fusedPrompt.trim().substring(0, 200) + (fusedPrompt.length > 200 ? '...' : ''));
-            } else {
-                console.warn('⚠️ Replicate 프롬프트가 비어 있습니다. 키워드 반영 이미지가 나오지 않을 수 있습니다.');
-            }
-            // Replicate API 키는 서버(.env)에서 관리. 서버에 없으면 503 반환
-            
-            // 참조 이미지가 있으면 2단계 접근 (배경 생성 → 제품 합성)
-            if (productImageUrl) {
-                console.log('🔄 [Replicate 2단계 접근] 1단계: 키워드 배경 먼저 생성...');
-                
-                // 1단계: 키워드 배경만 먼저 생성
-                var backgroundPrompt = fusedPrompt + ' This is a background scene only. No products, no subjects, no objects in the foreground. Just the environment, setting, atmosphere, and scene that represents the keyword theme. The background should fill the entire image.';
-                
-                // 서버 프록시를 통해 Replicate API 호출 (CORS 문제 해결)
-                var proxyUrl = API_BASE + '/api/replicate';
-                return fetch(proxyUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        version: "black-forest-labs/flux-dev",
-                        input: {
-                            prompt: backgroundPrompt,
-                            aspect_ratio: isMo ? '9:16' : '16:9',
-                            output_format: 'webp',
-                            seed: seed != null ? seed : undefined
-                        }
-                    })
-                })
-                .then(function(r) {
-                    if (!r.ok) {
-                        return r.json().then(function(errorData) {
-                            throw { response: r, errorData: errorData };
-                        }).catch(function() {
-                            throw { response: r, errorData: { error: { message: 'Unknown error' } } };
-                        });
-                    }
-                    return r.json();
-                })
-                .then(function(data) {
-                    // Replicate는 비동기 처리이므로 prediction을 확인해야 함
-                    var predictionId = data.id;
-                    console.log('✅ [Replicate 2단계 접근] 1단계 예측 생성됨:', predictionId);
-                    
-                    // 결과를 기다리는 함수
-                    function waitForPrediction(predictionId) {
-                        return new Promise(function(resolve, reject) {
-                            function checkStatus() {
-                                // 서버 프록시를 통해 상태 확인
-                                fetch(API_BASE + '/api/replicate/' + predictionId)
-                                .then(function(r) { return r.json(); })
-                                .then(function(prediction) {
-                                    if (prediction.status === 'succeeded') {
-                                        var backgroundUrl = prediction.output && prediction.output[0] ? prediction.output[0] : null;
-                                        if (!backgroundUrl) {
-                                            reject(new Error('배경 이미지 생성 실패'));
-                                            return;
-                                        }
-                                        console.log('✅ [Replicate 2단계 접근] 1단계 완료: 배경 생성됨');
-                                        console.log('🔄 [Replicate 2단계 접근] 2단계: 배경 위에 제품 합성...');
-                                        
-                                        // 2단계: ControlNet으로 배경 위에 제품 합성
-                                        var imageUrlForApi = (typeof productImageUrl === 'string' && productImageUrl.trim()) ? productImageUrl.trim() : productImageUrl;
-                                        var compositePrompt = fusedPrompt + ' Place the product/subject from the reference image naturally into this background scene. The product should blend seamlessly into the environment. Keep the background scene unchanged - only add the product from the reference image.';
-                                        
-                                        // 서버 프록시를 통해 Replicate API 호출
-                                        fetch(API_BASE + '/api/replicate', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json'
-                                            },
-                                            body: JSON.stringify({
-                                                version: "runvnc/controlnet2",
-                                                input: {
-                                                    image: imageUrlForApi,
-                                                    prompt: compositePrompt,
-                                                    structure: "background_mask",
-                                                    strength: 0.8,
-                                                    scale: 7.5
-                                                }
-                                            })
-                                        })
-                                        .then(function(r2) {
-                                            if (!r2.ok) {
-                                                return r2.json().then(function(errorData) {
-                                                    throw { response: r2, errorData: errorData };
-                                                });
-                                            }
-                                            return r2.json();
-                                        })
-                                        .then(function(data2) {
-                                            var compositePredictionId = data2.id;
-                                            return waitForPrediction(compositePredictionId);
-                                        })
-                                        .then(function(finalUrl) {
-                                            console.log('✅ [Replicate 2단계 접근] 2단계 완료: 제품 합성됨');
-                                            resolve(finalUrl);
-                                        })
-                                        .catch(function(err) {
-                                            console.warn('⚠️ 제품 합성 실패, 배경만 반환');
-                                            resolve(backgroundUrl);
-                                        });
-                                    } else if (prediction.status === 'failed') {
-                                        reject(new Error(prediction.error || '예측 실패'));
-                                    } else {
-                                        // 아직 처리 중이면 1초 후 다시 확인
-                                        setTimeout(checkStatus, 1000);
-                                    }
-                                })
-                                .catch(reject);
-                            }
-                            checkStatus();
-                        });
-                    }
-                    
-                    return waitForPrediction(predictionId);
-                })
-                .then(function(finalUrl) {
-                    console.log('✅ [진행 단계] Replicate 이미지 생성 완료 (' + imageType + ')');
-                    return finalUrl;
-                })
-                .catch(function(err) {
-                    console.error('❌ Replicate API 이미지 생성 실패 (' + imageType + ')');
-                    var sanitizedError = sanitizeErrorForLogging(err);
-                    if (sanitizedError) {
-                        console.error('📝 에러 메시지:', sanitizedError.message);
-                        if (sanitizedError.response) {
-                            console.error('📊 HTTP 상태 코드:', sanitizedError.response.status);
-                        }
-                    }
-                    if (err.response && err.response.status === 429 && !retried) {
-                        console.warn('⏳ 429 한도 초과. 35초 후 자동 재시도 (1회)...');
-                        if (typeof setGenerateStatus === 'function') setGenerateStatus('Replicate 한도 초과. 35초 후 자동 재시도...');
-                        return new Promise(function(go) { setTimeout(go, 35000); }).then(function() {
-                            if (typeof setGenerateStatus === 'function') setGenerateStatus('재시도 중...');
-                            return fetchReplicateImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl, true);
-                        });
-                    }
-                    return Promise.reject(err);
-                });
-            } else {
-                // 참조 이미지 없으면 배경만 생성
-                // 서버 프록시를 통해 Replicate API 호출
-                return fetch(API_BASE + '/api/replicate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        version: "black-forest-labs/flux-dev",
-                        input: {
-                            prompt: fusedPrompt,
-                            aspect_ratio: isMo ? '9:16' : '16:9',
-                            output_format: 'webp',
-                            seed: seed != null ? seed : undefined
-                        }
-                    })
-                })
-                .then(function(r) {
-                    if (!r.ok) {
-                        return r.json().then(function(errorData) {
-                            throw { response: r, errorData: errorData };
-                        }).catch(function() {
-                            throw { response: r, errorData: { error: '서버 응답 파싱 실패' } };
-                        });
-                    }
-                    return r.json();
-                })
-                .catch(function(err) {
-                    // 네트워크 오류 (서버 미실행 등)
-                    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED'))) {
-                        console.error('❌ 서버 연결 실패: server.js가 실행 중인지 확인하세요.');
-                        console.error('💡 해결 방법: 터미널에서 "node server.js" 실행 후 다시 시도하세요.');
-                        console.log('💡 자동으로 FAL API로 폴백합니다.');
-                        return fetchNanoBananaImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl);
-                    }
-                    throw err;
-                })
-                .then(function(data) {
-                    // data가 이미 FAL API 결과(URL 문자열)인 경우
-                    if (typeof data === 'string') {
-                        return data;
-                    }
-                    var predictionId = data.id;
-                    function waitForPrediction(predictionId) {
-                        return new Promise(function(resolve, reject) {
-                            function checkStatus() {
-                                // 서버 프록시를 통해 상태 확인
-                                fetch(API_BASE + '/api/replicate/' + predictionId)
-                                .then(function(r) { return r.json(); })
-                                .then(function(prediction) {
-                                    if (prediction.status === 'succeeded') {
-                                        var url = prediction.output && prediction.output[0] ? prediction.output[0] : null;
-                                        if (!url) reject(new Error('이미지 URL 없음'));
-                                        else resolve(url);
-                                    } else if (prediction.status === 'failed') {
-                                        reject(new Error(prediction.error || '예측 실패'));
-                                    } else {
-                                        setTimeout(checkStatus, 1000);
-                                    }
-                                })
-                                .catch(function(err) {
-                                    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED'))) {
-                                        console.error('❌ 서버 연결 실패: waitForPrediction 중');
-                                        console.log('💡 자동으로 FAL API로 폴백합니다.');
-                                        fetchNanoBananaImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl)
-                                            .then(resolve)
-                                            .catch(reject);
-                                    } else {
-                                        reject(err);
-                                    }
-                                });
-                            }
-                            checkStatus();
-                        });
-                    }
-                    return waitForPrediction(predictionId);
-                })
-                .then(function(url) {
-                    console.log('✅ [진행 단계] Replicate 이미지 생성 완료 (' + imageType + ')');
-                    return url;
-                })
-                .catch(function(err) {
-                    console.error('❌ Replicate API 이미지 생성 실패 (' + imageType + ')');
-                    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED'))) {
-                        console.error('⚠️ 서버 연결 실패: server.js가 실행 중인지 확인하세요. (node server.js)');
-                        console.error('💡 자동으로 FAL API로 폴백합니다.');
-                        return fetchNanoBananaImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl);
-                    }
-                    if (err.response && err.response.status === 429 && !retried) {
-                        console.warn('⏳ 429 한도 초과. 35초 후 자동 재시도 (1회)...');
-                        if (typeof setGenerateStatus === 'function') setGenerateStatus('Replicate 한도 초과. 35초 후 자동 재시도...');
-                        return new Promise(function(go) { setTimeout(go, 35000); }).then(function() {
-                            if (typeof setGenerateStatus === 'function') setGenerateStatus('재시도 중...');
-                            return fetchReplicateImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl, true);
-                        });
-                    }
-                    return Promise.reject(err);
-                });
-            }
         }
         
         // fal.ai Flux Image-to-Image (디벨롭: 현재 이미지 URL + 피드백, strength 0.45)
@@ -1906,7 +1647,7 @@
                 var imageApi = 'fal';
                 apiRadios.forEach(function(r) { if (r.checked) imageApi = r.value; });
                 selectedImageApi = imageApi;
-                console.log('🔵 [API 선택]', imageApi === 'replicate' ? 'Replicate API 사용' : imageApi === 'photoroom' ? 'Photoroom API 사용' : 'FAL API 사용');
+                console.log('🔵 [API 선택]', imageApi === 'photoroom' ? 'Photoroom API 사용' : 'FAL API 사용');
                 
                 var btn = this;
                 var origText = btn.textContent;
@@ -1953,13 +1694,7 @@
                     
                     // 선택된 API에 따라 다른 함수 호출
                     var promMo, promPc;
-                    if (selectedImageApi === 'replicate') {
-                        console.log('🟡 [진행 단계] Replicate API 호출 중 (한도 방지를 위해 MO → PC 순차 생성)...');
-                        moImageSrc = await fetchReplicateImage(selectedBrand, geminiResult.imagePromptMo || geminiResult.imagePrompt, baseSeed, true, referenceImageUrl);
-                        pcImageSrc = await fetchReplicateImage(selectedBrand, geminiResult.imagePrompt, baseSeed, false, referenceImageUrl);
-                        if (!pcImageSrc && moImageSrc) pcImageSrc = moImageSrc;
-                        console.log('🟡 [진행 단계] Replicate API 호출 완료.');
-                    } else if (selectedImageApi === 'photoroom') {
+                    if (selectedImageApi === 'photoroom') {
                         console.log('🟡 [진행 단계] Photoroom API 호출 중 (MO·PC 동시)...');
                         promMo = fetchPhotoroomImage(selectedBrand, geminiResult.imagePromptMo || geminiResult.imagePrompt, baseSeed, true, referenceImageUrl);
                         promPc = fetchPhotoroomImage(selectedBrand, geminiResult.imagePrompt, baseSeed, false, referenceImageUrl);
@@ -1993,9 +1728,7 @@
                     var errMsg = (sanitizedError && sanitizedError.message) ? sanitizedError.message : (error && error.message) ? error.message : '알 수 없는 오류';
                     var status429 = (error && error.response && error.response.status === 429);
                     if (status429) {
-                        alert('요청 한도를 초과했습니다 (429 Too Many Requests).\n\nReplicate에서 한도가 걸린 상태입니다. 보통 약 30초 후에 풀립니다.\n• 30초~1분 기다린 뒤 다시 시도해 주세요.\n• 사용량/결제 확인: https://replicate.com/account/billing');
-                    } else if (selectedImageApi === 'replicate') {
-                        alert('키워드 반영 이미지 생성에 실패했습니다.\n\nReplicate API 오류일 수 있습니다. 확인할 것:\n• server.js 터미널에 에러 로그가 있는지\n• Replicate API 키가 유효한지\n• Replicate 서비스 상태\n\n콘솔(F12)에서 상세 오류를 확인할 수 있습니다.');
+                        alert('요청 한도를 초과했습니다 (429 Too Many Requests).\n\n잠시 후 다시 시도해 주세요.');
                     } else if (selectedImageApi === 'photoroom') {
                         alert('키워드 반영 이미지 생성에 실패했습니다.\n\nPhotoroom API 키를 확인하거나, Plus 플랜(AI 배경) 지원 여부를 확인해 주세요.\n\n오류: ' + errMsg);
                     } else {
@@ -2501,7 +2234,7 @@
                     .then(function(r) {
                         if (r.ok) {
                             statusEl.classList.remove('hidden');
-                            statusTextEl.textContent = '✅ 서버 연결됨 (Gemini·FAL·Replicate 사용 가능)';
+                            statusTextEl.textContent = '✅ 서버 연결됨 (Gemini·FAL 사용 가능)';
                             statusTextEl.className = 'text-green-600';
                         } else {
                             throw new Error('서버 응답 오류');
@@ -2514,15 +2247,10 @@
                     });
             }
             
-            // Replicate API 선택 시 서버 상태 확인
             document.querySelectorAll('input[name="imageApi"]').forEach(function(radio) {
                 radio.addEventListener('change', function() {
-                    if (this.value === 'replicate') {
-                        checkServerStatus();
-                    } else {
-                        var statusEl = document.getElementById('serverStatus');
-                        if (statusEl) statusEl.classList.add('hidden');
-                    }
+                    var statusEl = document.getElementById('serverStatus');
+                    if (statusEl) statusEl.classList.add('hidden');
                 });
             });
             (function setupReferenceImageAndAiMode() {
@@ -2637,7 +2365,7 @@
                         }
                     });
                 }
-                // 제품 이미지 URL 입력란 — FAL·Replicate 모두 image_url로 URL 지원
+                // 제품 이미지 URL 입력란 — FAL·Photoroom 모두 image_url로 URL 지원
                 var referenceImageUrlInputEl = document.getElementById('referenceImageUrlInput');
                 function applyReferenceUrlFromInput(val) {
                     var v = (val || '').trim();
@@ -2662,7 +2390,7 @@
                 document.querySelectorAll('input[name="imageApi"]').forEach(function(r) {
                     r.addEventListener('change', function() { 
                         selectedImageApi = this.value;
-                        console.log('🔵 [API 변경]', selectedImageApi === 'replicate' ? 'Replicate API로 변경됨' : 'FAL API로 변경됨');
+                        console.log('🔵 [API 변경]', selectedImageApi === 'photoroom' ? 'Photoroom API로 변경됨' : 'FAL API로 변경됨');
                     });
                 });
             })();
