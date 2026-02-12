@@ -532,12 +532,22 @@
                     else if (aiMode === 'person') modeInstruction = ' Focus: person/model-centered commercial photography. The scene should feature a person or model as the main subject.';
                     var refImageNote = hasReferenceImage ? '\n\n**CRITICAL: A reference product/subject image will be provided, but the KEYWORD is the PRIMARY and DOMINANT theme. Your backgroundPrompt must describe ONLY the keyword-themed background scene that will COMPLETELY REPLACE the reference image\'s background. Do NOT describe the product itself - only describe the environment, setting, scene, atmosphere, lighting, colors, mood that represents the keyword. The product from the reference image will be placed into this background later. Focus on creating a rich, detailed background scene that represents the keyword theme - NOT a simple or plain background.' : '';
                     var userContent = 'Analyze this keyword and create a creative visual scene for a banner image optimized for fal.ai Flux model.\n\nKeyword: "' + (userKeyword || '') + '"\nCampaign intent (기획 의도 및 강조점): "' + (userInstructions || '') + '"' + refImageNote + '\n\n' + modeInstruction + '\n\n**Your task (optimized for Flux):**\n1. Analyze what this keyword represents (company/brand, place, product, concept, etc.)\n2. Understand the essence and characteristics of this keyword\n3. Design a creative visual scene that incorporates the keyword and campaign intent into the banner' + (hasReferenceImage ? '\n4. **If a reference product/subject image is provided:** Describe ONLY the background environment, setting, atmosphere, lighting, colors, mood that represents the keyword theme. Do NOT describe the product itself - the product will be added separately. Focus on creating a complete, detailed background scene that the keyword represents.' : '') + '\n4. **Write a detailed, specific English prompt optimized for Flux:**\n   - Use concrete nouns and descriptive adjectives\n   - Specify lighting, color tones, mood, and style\n   - Include composition and spatial arrangement details\n   - Make it visually clear and immediately recognizable\n   - ' + (hasReferenceImage ? 'Describe ONLY the background scene, environment, setting - NOT any products or subjects' : '') + '\n5. Be creative and thoughtful.\n\n**Important:** Flux works best with detailed, specific descriptions. One sentence only, but make it detailed and specific.';
+                    // 참조 이미지(업로드 data URL)가 있으면 Gemini에 함께 보내서 "배치" 힌트를 얻음
+                    // (URL 참조 이미지는 CORS로 base64 변환이 어려울 수 있어, 업로드된 data URL만 사용)
+                    var geminiParts = [{ text: userContent }];
+                    try {
+                        var ref = (typeof referenceImageUrl === 'string') ? referenceImageUrl : '';
+                        var mm = ref.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+                        if (mm && mm[2]) {
+                            geminiParts.push({ inlineData: { mimeType: mm[1], data: mm[2] } });
+                        }
+                    } catch (e) {}
                     res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             systemInstruction: { parts: [{ text: GEMINI_CREATIVE_DIRECTOR_SYSTEM }] },
-                            contents: [{ role: 'user', parts: [{ text: userContent }] }],
+                            contents: [{ role: 'user', parts: geminiParts }],
                             generationConfig: { response_mime_type: 'application/json', maxOutputTokens: 256 }
                         })
                     });
