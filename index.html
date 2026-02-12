@@ -119,6 +119,10 @@
                             <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">FAL API</span> — 빠른 생성, 기본 배경 교체</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="imageApi" value="photoroom" class="w-4 h-4 text-indigo-600">
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">Photoroom API</span> — AI 배경 생성 (FAL과 비교 테스트용)</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="imageApi" value="replicate" class="w-4 h-4 text-indigo-600">
                             <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">Replicate API</span> — 서버 프록시 필요 (server.js 실행 필요)</span>
                         </label>
@@ -136,6 +140,10 @@
                         <div>
                             <label for="falApiKeyInput" class="block text-sm font-medium text-gray-700 mb-1">FAL API 키 <span class="text-gray-500 font-normal">(한 번 입력하면 이 브라우저에 저장됨)</span></label>
                             <input type="password" id="falApiKeyInput" autocomplete="off" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="fal.ai에서 발급한 키">
+                        </div>
+                        <div>
+                            <label for="photoroomApiKeyInput" class="block text-sm font-medium text-gray-700 mb-1">Photoroom API 키 <span class="text-gray-500 font-normal">(FAL과 비교 시 사용, 브라우저에 저장)</span></label>
+                            <input type="password" id="photoroomApiKeyInput" autocomplete="off" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="app.photoroom.com/api-dashboard에서 발급">
                         </div>
                     </div>
                     <p class="text-xs text-amber-700 mt-1.5 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
@@ -336,8 +344,10 @@
         if (typeof getGeminiApiKey === 'undefined') { function getGeminiApiKey() { return ''; } }
         if (typeof getFalApiKey === 'undefined') { function getFalApiKey() { return ''; } }
         if (typeof getReplicateApiKey === 'undefined') { function getReplicateApiKey() { return ''; } }
+        if (typeof getPhotoroomApiKey === 'undefined') { function getPhotoroomApiKey() { return ''; } }
         var STORAGE_KEY_GEMINI = 'instant_campaign_gemini_key';
         var STORAGE_KEY_FAL = 'instant_campaign_fal_key';
+        var STORAGE_KEY_PHOTOROOM = 'instant_campaign_photoroom_key';
         // Gemini 키: 화면 입력란 우선 → localStorage → config.js
         function getEffectiveGeminiApiKey() {
             var el = document.getElementById('geminiApiKeyInput');
@@ -353,6 +363,14 @@
             if (fromInput) return fromInput;
             try { fromInput = (localStorage.getItem(STORAGE_KEY_FAL) || '').trim(); if (fromInput) return fromInput; } catch (e) {}
             return getFalApiKey() || '';
+        }
+        // Photoroom 키: 화면 입력란 우선 → localStorage → config.js
+        function getEffectivePhotoroomApiKey() {
+            var el = document.getElementById('photoroomApiKeyInput');
+            var fromInput = el && el.value && String(el.value).trim();
+            if (fromInput) return fromInput;
+            try { fromInput = (localStorage.getItem(STORAGE_KEY_PHOTOROOM) || '').trim(); if (fromInput) return fromInput; } catch (e) {}
+            return getPhotoroomApiKey() || '';
         }
         
         // API 키 마스킹 함수 (콘솔 로그 보안)
@@ -853,6 +871,71 @@
                     return 'https://picsum.photos/seed/fallback/1920/1080';
                 });
             }
+        }
+        
+        // ——— 4-2. Photoroom API 이미지 생성 (AI 배경 생성, FAL과 비교용) ———
+        // 문서: https://docs.photoroom.com/image-editing-api-plus-plan/ai-backgrounds
+        function fetchPhotoroomImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl) {
+            var apiKey = getEffectivePhotoroomApiKey();
+            if (!apiKey || !String(apiKey).trim()) {
+                return Promise.reject(new Error('Photoroom API 키를 입력란에 넣어 주세요. app.photoroom.com/api-dashboard에서 발급 가능합니다.'));
+            }
+            var imageType = isMo ? 'MO' : 'PC';
+            console.log('🟡 [진행 단계] Photoroom API 호출 중... (' + imageType + ')');
+            var baseUrl = 'https://image-api.photoroom.com/v2/edit';
+            var outputSize = isMo ? '576x1024' : '1024x576';
+            var sizeParam = isMo ? 'PORTRAIT_16_9' : 'LANDSCAPE_16_9';
+            var prompt = (fusedPrompt || '').trim() || 'professional product photography, clean background, high quality';
+            
+            function toObjectUrl(blob) { return URL.createObjectURL(blob); }
+            
+            if (productImageUrl) {
+                var isHttpUrl = typeof productImageUrl === 'string' && /^https?:\/\//i.test(productImageUrl.trim());
+                if (isHttpUrl) {
+                    var imgUrl = productImageUrl.trim();
+                    var getUrl = baseUrl + '?imageUrl=' + encodeURIComponent(imgUrl) + '&referenceBox=originalImage&removeBackground=true&background.prompt=' + encodeURIComponent(prompt) + '&outputSize=' + outputSize + (seed != null ? '&background.seed=' + seed : '');
+                    return fetch(getUrl, { method: 'GET', headers: { 'x-api-key': apiKey } })
+                        .then(function(r) {
+                            if (!r.ok) return r.text().then(function(t) { throw new Error(r.status + ' ' + (t || r.statusText)); });
+                            return r.blob();
+                        })
+                        .then(toObjectUrl);
+                }
+                var dataUrl = typeof productImageUrl === 'string' ? productImageUrl : '';
+                if (dataUrl.indexOf('data:') === 0) {
+                    return fetch(dataUrl).then(function(r) { return r.blob(); })
+                        .then(function(blob) {
+                            var form = new FormData();
+                            form.append('imageFile', blob, 'image.png');
+                            form.append('referenceBox', 'originalImage');
+                            form.append('removeBackground', 'true');
+                            form.append('background.prompt', prompt);
+                            form.append('outputSize', outputSize);
+                            if (seed != null) form.append('background.seed', String(seed));
+                            return fetch(baseUrl, { method: 'POST', headers: { 'x-api-key': apiKey }, body: form });
+                        })
+                        .then(function(r) {
+                            if (!r.ok) return r.text().then(function(t) { throw new Error(r.status + ' ' + (t || r.statusText)); });
+                            return r.blob();
+                        })
+                        .then(toObjectUrl);
+                }
+            }
+            var getUrl = baseUrl + '?imageFromPrompt.prompt=' + encodeURIComponent(prompt) + '&imageFromPrompt.size=' + sizeParam + (seed != null ? '&imageFromPrompt.seed=' + seed : '');
+            return fetch(getUrl, { method: 'GET', headers: { 'x-api-key': apiKey } })
+                .then(function(r) {
+                    if (!r.ok) return r.text().then(function(t) { throw new Error(r.status + ' ' + (t || r.statusText)); });
+                    return r.blob();
+                })
+                .then(toObjectUrl)
+                .then(function(url) {
+                    console.log('✅ [진행 단계] Photoroom 이미지 생성 완료 (' + imageType + ')');
+                    return url;
+                })
+                .catch(function(err) {
+                    console.error('❌ Photoroom API 실패 (' + imageType + '):', err && err.message);
+                    throw err;
+                });
         }
         
         // ——— 5. Replicate API 이미지 생성 (ControlNet으로 정확한 배경 교체) ———
@@ -1823,7 +1906,7 @@
                 var imageApi = 'fal';
                 apiRadios.forEach(function(r) { if (r.checked) imageApi = r.value; });
                 selectedImageApi = imageApi;
-                console.log('🔵 [API 선택]', imageApi === 'replicate' ? 'Replicate API 사용' : 'FAL API 사용');
+                console.log('🔵 [API 선택]', imageApi === 'replicate' ? 'Replicate API 사용' : imageApi === 'photoroom' ? 'Photoroom API 사용' : 'FAL API 사용');
                 
                 var btn = this;
                 var origText = btn.textContent;
@@ -1869,8 +1952,6 @@
                     console.log('🟡 [진행 단계] 시드 생성 완료:', baseSeed);
                     
                     // 선택된 API에 따라 다른 함수 호출
-                    // 주의: Replicate API는 CORS 문제로 브라우저에서 직접 호출 불가
-                    // 서버 사이드 프록시가 필요하므로 현재는 FAL API만 사용
                     var promMo, promPc;
                     if (selectedImageApi === 'replicate') {
                         console.log('🟡 [진행 단계] Replicate API 호출 중 (한도 방지를 위해 MO → PC 순차 생성)...');
@@ -1878,6 +1959,15 @@
                         pcImageSrc = await fetchReplicateImage(selectedBrand, geminiResult.imagePrompt, baseSeed, false, referenceImageUrl);
                         if (!pcImageSrc && moImageSrc) pcImageSrc = moImageSrc;
                         console.log('🟡 [진행 단계] Replicate API 호출 완료.');
+                    } else if (selectedImageApi === 'photoroom') {
+                        console.log('🟡 [진행 단계] Photoroom API 호출 중 (MO·PC 동시)...');
+                        promMo = fetchPhotoroomImage(selectedBrand, geminiResult.imagePromptMo || geminiResult.imagePrompt, baseSeed, true, referenceImageUrl);
+                        promPc = fetchPhotoroomImage(selectedBrand, geminiResult.imagePrompt, baseSeed, false, referenceImageUrl);
+                        var results = await Promise.all([promMo, promPc]);
+                        moImageSrc = results[0] || '';
+                        pcImageSrc = results[1] || '';
+                        if (!pcImageSrc && moImageSrc) pcImageSrc = moImageSrc;
+                        console.log('🟡 [진행 단계] Photoroom API 호출 완료.');
                     } else {
                         promMo = fetchNanoBananaImage(selectedBrand, geminiResult.imagePromptMo || geminiResult.imagePrompt, baseSeed, true, referenceImageUrl);
                         promPc = fetchNanoBananaImage(selectedBrand, geminiResult.imagePrompt, baseSeed, false, referenceImageUrl);
@@ -1906,6 +1996,8 @@
                         alert('요청 한도를 초과했습니다 (429 Too Many Requests).\n\nReplicate에서 한도가 걸린 상태입니다. 보통 약 30초 후에 풀립니다.\n• 30초~1분 기다린 뒤 다시 시도해 주세요.\n• 사용량/결제 확인: https://replicate.com/account/billing');
                     } else if (selectedImageApi === 'replicate') {
                         alert('키워드 반영 이미지 생성에 실패했습니다.\n\nReplicate API 오류일 수 있습니다. 확인할 것:\n• server.js 터미널에 에러 로그가 있는지\n• Replicate API 키가 유효한지\n• Replicate 서비스 상태\n\n콘솔(F12)에서 상세 오류를 확인할 수 있습니다.');
+                    } else if (selectedImageApi === 'photoroom') {
+                        alert('키워드 반영 이미지 생성에 실패했습니다.\n\nPhotoroom API 키를 확인하거나, Plus 플랜(AI 배경) 지원 여부를 확인해 주세요.\n\n오류: ' + errMsg);
                     } else {
                         alert('키워드 반영 이미지 생성에 실패했습니다.\n\nFAL API 키를 확인하거나, 잠시 후 다시 시도해 주세요.\n\n오류: ' + errMsg);
                     }
@@ -2365,10 +2457,13 @@
             try {
                 var g = localStorage.getItem(STORAGE_KEY_GEMINI);
                 var f = localStorage.getItem(STORAGE_KEY_FAL);
+                var p = localStorage.getItem(STORAGE_KEY_PHOTOROOM);
                 var geminiEl = document.getElementById('geminiApiKeyInput');
                 var falEl = document.getElementById('falApiKeyInput');
+                var photoroomEl = document.getElementById('photoroomApiKeyInput');
                 if (geminiEl && g) geminiEl.value = g;
                 if (falEl && f) falEl.value = f;
+                if (photoroomEl && p) photoroomEl.value = p;
             } catch (e) {}
             function saveApiKeyToStorage(id, storageKey) {
                 var el = document.getElementById(id);
@@ -2382,6 +2477,7 @@
             }
             saveApiKeyToStorage('geminiApiKeyInput', STORAGE_KEY_GEMINI);
             saveApiKeyToStorage('falApiKeyInput', STORAGE_KEY_FAL);
+            saveApiKeyToStorage('photoroomApiKeyInput', STORAGE_KEY_PHOTOROOM);
             
             document.getElementById('trendsReloadBtn')?.addEventListener('click', function() {
                 this.disabled = true;
