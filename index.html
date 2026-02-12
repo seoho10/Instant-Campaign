@@ -128,9 +128,15 @@
                         <span id="serverStatusText" class="text-gray-500"></span>
                     </div>
                     <p class="text-xs text-gray-500 mt-2">Replicate API 사용 시: <code class="bg-gray-100 px-1 rounded">node server.js</code> 실행 후 사용하세요.</p>
-                    <div class="mt-3">
-                        <label for="falApiKeyInput" class="block text-sm font-medium text-gray-700 mb-1">FAL API 키 <span class="text-gray-500 font-normal">(서버 없이 사용 시 여기에 입력)</span></label>
-                        <input type="password" id="falApiKeyInput" autocomplete="off" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="fal.ai에서 발급한 키 입력 (config.js 없을 때 사용)">
+                    <div class="mt-3 space-y-3">
+                        <div>
+                            <label for="geminiApiKeyInput" class="block text-sm font-medium text-gray-700 mb-1">Gemini API 키 <span class="text-gray-500 font-normal">(한 번 입력하면 이 브라우저에 저장됨)</span></label>
+                            <input type="password" id="geminiApiKeyInput" autocomplete="off" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Google AI Studio에서 발급한 키">
+                        </div>
+                        <div>
+                            <label for="falApiKeyInput" class="block text-sm font-medium text-gray-700 mb-1">FAL API 키 <span class="text-gray-500 font-normal">(한 번 입력하면 이 브라우저에 저장됨)</span></label>
+                            <input type="password" id="falApiKeyInput" autocomplete="off" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="fal.ai에서 발급한 키">
+                        </div>
                     </div>
                     <p class="text-xs text-amber-700 mt-1.5 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
                         💡 <strong>무료로 테스트하려면:</strong> <span class="font-medium text-indigo-700">FAL API</span>를 선택하세요. fal.ai 가입 후 크레딧으로 체험 가능. Replicate는 결제 수단 없이도 ‘Try for Free’로 제한적 체험 가능(분당 요청 수 제한 있음).
@@ -330,11 +336,23 @@
         if (typeof getGeminiApiKey === 'undefined') { function getGeminiApiKey() { return ''; } }
         if (typeof getFalApiKey === 'undefined') { function getFalApiKey() { return ''; } }
         if (typeof getReplicateApiKey === 'undefined') { function getReplicateApiKey() { return ''; } }
-        // FAL 키: 화면 입력란 우선, 없으면 config.js
+        var STORAGE_KEY_GEMINI = 'instant_campaign_gemini_key';
+        var STORAGE_KEY_FAL = 'instant_campaign_fal_key';
+        // Gemini 키: 화면 입력란 우선 → localStorage → config.js
+        function getEffectiveGeminiApiKey() {
+            var el = document.getElementById('geminiApiKeyInput');
+            var fromInput = el && el.value && String(el.value).trim();
+            if (fromInput) return fromInput;
+            try { fromInput = (localStorage.getItem(STORAGE_KEY_GEMINI) || '').trim(); if (fromInput) return fromInput; } catch (e) {}
+            return getGeminiApiKey() || '';
+        }
+        // FAL 키: 화면 입력란 우선 → localStorage → config.js
         function getEffectiveFalApiKey() {
             var el = document.getElementById('falApiKeyInput');
             var fromInput = el && el.value && String(el.value).trim();
-            return fromInput || (getFalApiKey() || '');
+            if (fromInput) return fromInput;
+            try { fromInput = (localStorage.getItem(STORAGE_KEY_FAL) || '').trim(); if (fromInput) return fromInput; } catch (e) {}
+            return getFalApiKey() || '';
         }
         
         // API 키 마스킹 함수 (콘솔 로그 보안)
@@ -486,7 +504,7 @@
             }
             lastGeminiCallTime = now;
             
-            var apiKey = getGeminiApiKey();
+            var apiKey = getEffectiveGeminiApiKey();
             var res = null;
             try {
                 if (apiKey && !API_BASE) {
@@ -2343,6 +2361,28 @@
         // 페이지 로드 시 트렌드 데이터 가져오기 및 이벤트 리스너 설정
         document.addEventListener('DOMContentLoaded', function() {
             fetchTrends();
+            // 저장된 API 키 불러와서 입력란에 채우기
+            try {
+                var g = localStorage.getItem(STORAGE_KEY_GEMINI);
+                var f = localStorage.getItem(STORAGE_KEY_FAL);
+                var geminiEl = document.getElementById('geminiApiKeyInput');
+                var falEl = document.getElementById('falApiKeyInput');
+                if (geminiEl && g) geminiEl.value = g;
+                if (falEl && f) falEl.value = f;
+            } catch (e) {}
+            function saveApiKeyToStorage(id, storageKey) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('blur', function() {
+                    try {
+                        var v = (el.value || '').trim();
+                        if (v) localStorage.setItem(storageKey, v);
+                    } catch (e) {}
+                });
+            }
+            saveApiKeyToStorage('geminiApiKeyInput', STORAGE_KEY_GEMINI);
+            saveApiKeyToStorage('falApiKeyInput', STORAGE_KEY_FAL);
+            
             document.getElementById('trendsReloadBtn')?.addEventListener('click', function() {
                 this.disabled = true;
                 this.textContent = '불러오는 중...';
