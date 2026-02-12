@@ -8,6 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.26/dist/interact.min.js"></script>
+    <!-- config.js 에서 API 키 로드 (서버 없이 쓸 때). 없으면 getGeminiApiKey 등은 빈 문자열 반환 -->
+    <script src="config.js"></script>
     <style>
         /* 하단 시안 영역으로 부드럽게 넘어가기 위한 설정 */
         html { scroll-behavior: smooth; }
@@ -66,7 +68,7 @@
         <main class="main-content grid grid-cols-12 grid-rows-[1fr] gap-0 flex-1 min-h-0 overflow-hidden w-full">
         
         <section class="col-span-3 border-r bg-white p-4 min-h-0 overflow-y-auto">
-            <h2 class="text-base font-bold mb-4 text-gray-700">1. 검색어 선택</h2>
+            <h2 class="text-base font-bold mb-3 text-gray-700">1. 검색어 선택</h2>
             <div class="flex items-center justify-between mb-2">
                 <span id="trendsUpdateTime" class="text-sm font-bold text-gray-400 uppercase">트렌드 (로딩 중...)</span>
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,8 +84,70 @@
             <button type="button" id="trendsReloadBtn" class="mt-3 w-full py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50">다시 불러오기</button>
         </section>
 
-        <section class="col-span-5 border-r p-4 min-h-0 overflow-y-auto bg-gray-50">
-            <h2 class="text-base font-bold mb-3 text-gray-700">2. 기획전 템플릿</h2>
+        <section class="col-span-4 border-r p-4 min-h-0 overflow-y-auto bg-white">
+            <h2 class="text-base font-bold mb-3 text-gray-700">2. 상세 설정</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">제품 이미지(누끼컷) — 배경 합성용</label>
+                    <div id="referenceImageZone" class="w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 cursor-pointer transition-colors">
+                        <input type="file" id="referenceImageInput" accept="image/*" class="hidden">
+                        <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
+                        <span id="referenceImageLabel" class="text-xs">제품 이미지를 올리면 키워드와 기획의도에 맞는 배경에 합성합니다</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1.5">또는 아래에 <strong>이미지 URL</strong>을 넣어도 됩니다 (FAL·Replicate 모두 URL 지원)</p>
+                    <input type="url" id="referenceImageUrlInput" placeholder="https:// 예시 이미지 주소" class="mt-1.5 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div id="aiModeSection">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">AI 생성 모드</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="aiGenerateMode" value="product" class="w-4 h-4 text-indigo-600">
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">제품 중심(연출컷)</span> — 제품이 주인공인 연출 사진</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="aiGenerateMode" value="person" class="w-4 h-4 text-indigo-600">
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">인물 중심(모델컷)</span> — 인물/모델이 주인공인 연출 사진</span>
+                        </label>
+                    </div>
+                    <p id="aiModeHint" class="mt-1.5 text-xs text-gray-400">생성 모드는 선택사항입니다.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">이미지 생성 API</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="imageApi" value="fal" checked class="w-4 h-4 text-indigo-600">
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">FAL API</span> — 빠른 생성, 기본 배경 교체</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="imageApi" value="replicate" class="w-4 h-4 text-indigo-600">
+                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">Replicate API</span> — 서버 프록시 필요 (server.js 실행 필요)</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">⚠️ <strong>한도 초과(429)가 자주 나오는 이유:</strong> 결제 수단 없이 쓰면 <strong>분당 최대 6회</strong>만 허용됩니다. 시안 1회 = MO+PC 2회라서 1분에 2~3번만 생성 가능. 결제 추가 시 분당 600회로 완화됩니다. 429 나오면 35초 후 자동 재시도(1회)합니다.</p>
+                    <div id="serverStatus" class="text-xs mt-2 hidden">
+                        <span id="serverStatusText" class="text-gray-500"></span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Replicate API 사용 시: <code class="bg-gray-100 px-1 rounded">node server.js</code> 실행 후 사용하세요.</p>
+                    <p class="text-xs text-amber-700 mt-1.5 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                        💡 <strong>무료로 테스트하려면:</strong> <span class="font-medium text-indigo-700">FAL API</span>를 선택하세요. fal.ai 가입 후 크레딧으로 체험 가능. Replicate는 결제 수단 없이도 ‘Try for Free’로 제한적 체험 가능(분당 요청 수 제한 있음).
+                    </p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">기획 의도 및 강조점</label>
+                    <textarea id="campaignIntent" class="w-full border rounded-lg p-3 h-24 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="예: 신규 회원 가입 혜택을 가장 크게 보여줘."></textarea>
+                    <p class="mt-1.5 text-xs text-gray-500">
+                        💡 <strong>효과적인 작성 팁:</strong><br>
+                        • 구체적인 배경/장소: "대학 캠퍼스", "모던 오피스", "자연스러운 실내"<br>
+                        • 분위기/감성: "프리미엄 느낌", "청량한 느낌", "따뜻한 분위기"<br>
+                        • 강조하고 싶은 요소: "제품이 돋보이게", "브랜드 고급스러움 강조"<br>
+                        • 스타일: "미니멀", "럭셔리", "트렌디", "클래식"
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="col-span-5 p-4 min-h-0 overflow-y-auto bg-gray-50">
+            <h2 class="text-base font-bold mb-3 text-gray-700">3. 기획전 템플릿 <span class="text-xs font-normal text-gray-500">(선택사항)</span></h2>
             <div class="grid grid-cols-2 gap-3">
                 <div class="template-card relative bg-gray-100 rounded-lg p-4 cursor-pointer border-2 border-transparent transition-all duration-200 hover:scale-[1.02] hover:shadow-md ring-4 ring-indigo-500 ring-offset-2" data-template="A">
                     <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white template-check">
@@ -151,52 +215,13 @@
                     </div>
                 </div>
             </div>
-        </section>
-
-        <section class="col-span-4 p-4 min-h-0 overflow-y-auto bg-white">
-            <h2 class="text-base font-bold mb-4 text-gray-700">3. 상세 설정</h2>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">강조 옵션</label>
-                    <div class="flex flex-wrap gap-2">
-                        <button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm">세일즈 강조</button>
-                        <button class="px-4 py-2 rounded-full bg-white border text-gray-600 text-sm hover:bg-gray-100">키워드 강조</button>
-                        <button class="px-4 py-2 rounded-full bg-white border text-gray-600 text-sm hover:bg-gray-100">브랜드 스토리 강조</button>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">참조 이미지 첨부</label>
-                    <div id="referenceImageZone" class="w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 cursor-pointer transition-colors">
-                        <input type="file" id="referenceImageInput" accept="image/*" class="hidden">
-                        <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
-                        <span id="referenceImageLabel" class="text-xs">이미지를 드래그하거나 클릭하세요</span>
-                    </div>
-                </div>
-                <div id="aiModeSection">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">AI 생성 모드</label>
-                    <div class="space-y-2">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="aiGenerateMode" value="similar" class="w-4 h-4 text-indigo-600" disabled>
-                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">유사 재생성</span> — 구도/포즈 유지, 브랜드 스타일로 재창조</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="aiGenerateMode" value="cutout" class="w-4 h-4 text-indigo-600" disabled>
-                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">누끼/배경교체</span> — 모델 고정, 배경만 브랜드 컨셉으로</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="aiGenerateMode" value="mood" class="w-4 h-4 text-indigo-600" disabled>
-                            <span class="text-sm text-gray-600"><span class="font-medium text-indigo-700">분위기 참조</span> — 색감/느낌만 참고하여 자유 생성</span>
-                        </label>
-                    </div>
-                    <p id="aiModeHint" class="mt-1.5 text-xs text-gray-400">참조 이미지를 첨부하면 모드를 선택할 수 있습니다.</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">기획 의도 및 강조점</label>
-                    <textarea id="campaignIntent" class="w-full border rounded-lg p-3 h-24 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="예: 신규 회원 가입 혜택을 가장 크게 보여줘."></textarea>
-                </div>
-                <p id="generateStatus" class="text-sm text-indigo-600 min-h-[1.5rem] py-1"></p>
-                <button id="generateButton" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg">
+            <p id="generateStatus" class="mt-4 text-sm text-indigo-600 min-h-[1.5rem] py-1"></p>
+            <div class="mt-4 flex gap-2">
+                <button id="generateButton" class="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg">
                     AI 시안 생성하기 ↓
+                </button>
+                <button id="resetButton" class="flex-1 bg-gray-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-gray-600 transition-all shadow-lg">
+                    초기화
                 </button>
             </div>
         </section>
@@ -212,8 +237,8 @@
             <!-- 좌+중앙: 시안 갤러리 (col-span-8) — 비율 유지, 텍스트 편집과 간격 확보 -->
             <div class="col-span-12 lg:col-span-8 flex flex-col min-h-0 pr-0 lg:pr-6">
                 <div class="flex flex-row items-center justify-start gap-4 h-[440px] min-h-[440px] max-w-full rounded-xl border border-indigo-200/80 bg-white shadow-sm overflow-x-auto overflow-y-hidden p-4">
-                    <div id="resultMoCapture" class="relative overflow-hidden rounded-lg flex-shrink-0 h-full w-auto" style="aspect-ratio: 2304/3500;">
-                        <img id="resultMoImage" src="" alt="MO 시안" class="absolute inset-0 w-full h-full object-cover object-center hidden">
+                    <div id="resultMoCapture" class="relative overflow-hidden rounded-lg flex-shrink-0 h-full w-auto min-w-[180px]" style="aspect-ratio: 2304/3500;">
+                        <img id="resultMoImage" src="" alt="MO 시안" class="absolute inset-0 w-full h-full object-contain object-center hidden">
                         <p id="resultMoPlaceholder" class="absolute inset-0 flex items-center justify-center text-gray-500 py-12 px-6 text-center text-sm bg-gray-100">키워드 선택 후 AI 시안 생성하기를 누르세요.</p>
                         <div id="resultMoOverlay" class="absolute inset-0 bg-gradient-to-b from-black/30 to-transparent hidden" style="pointer-events:none">
                             <div class="overlay-text-box" data-target="mo-brand" style="pointer-events:auto; left:0; top:0;"><span id="resultMoBrand" class="font-bold text-white/95 tracking-wide">DV 26SS 컬렉션</span><span class="resize-handle" title="크기 조절"></span></div>
@@ -296,9 +321,92 @@
     </div>
 
     <script>
-        // ========== API 및 테스트 모드 (최상단) ==========
-        function getGeminiApiKey() { return 'AIzaSyDqoWOtsSfhu3-cUvfxFqqZnkIvuUOK1mQ'; }
-        function getFalApiKey() { return 'a0eec544-5fd2-4ae8-9d86-fe56df3c9013:ff5988995ef98d6c11596cb57f3d6028'; }
+        // ========== 서버 없이 쓸 때: config.js 키로 브라우저에서 직접 호출. 서버 쓸 때: API_BASE 설정하면 /api/* 로 요청 ==========
+        var API_BASE = ''; // 서버 배포 시 여기 백엔드 URL 넣으면 Gemini/FAL/Replicate 모두 서버 경유
+        if (typeof getGeminiApiKey === 'undefined') { function getGeminiApiKey() { return ''; } }
+        if (typeof getFalApiKey === 'undefined') { function getFalApiKey() { return ''; } }
+        if (typeof getReplicateApiKey === 'undefined') { function getReplicateApiKey() { return ''; } }
+        
+        // API 키 마스킹 함수 (콘솔 로그 보안)
+        function maskApiKey(key) {
+            if (!key || key.length < 8) return '***';
+            return key.substring(0, 4) + '***' + key.substring(key.length - 4);
+        }
+        
+        // URL에서 API 키 마스킹 함수
+        function maskApiKeyInUrl(url) {
+            if (!url || typeof url !== 'string') return url;
+            // Gemini API 키 패턴: AIzaSy...
+            url = url.replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+            // FAL API 키 패턴: UUID:hash
+            url = url.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+            // key= 파라미터 마스킹
+            url = url.replace(/[?&]key=([^&]*)/gi, function(match, key) { return match.replace(key, maskApiKey(key)); });
+            return url;
+        }
+        
+        // 에러 객체를 안전하게 마스킹하여 로그 출력용으로 변환하는 함수
+        function sanitizeErrorForLogging(error) {
+            if (!error) return null;
+            var sanitized = {};
+            try {
+                // error.message
+                if (error.message) {
+                    sanitized.message = maskApiKeyInUrl(error.message);
+                    sanitized.message = sanitized.message.replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                    sanitized.message = sanitized.message.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                }
+                // error.response (axios 스타일)
+                if (error.response) {
+                    sanitized.response = {
+                        status: error.response.status,
+                        statusText: error.response.statusText,
+                        headers: error.response.headers || {}
+                    };
+                    if (error.response.data) {
+                        var dataStr = JSON.stringify(error.response.data);
+                        dataStr = maskApiKeyInUrl(dataStr);
+                        dataStr = dataStr.replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                        dataStr = dataStr.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                        try {
+                            sanitized.response.data = JSON.parse(dataStr);
+                        } catch (e) {
+                            sanitized.response.data = dataStr;
+                        }
+                    }
+                }
+                // error.stack
+                if (error.stack) {
+                    sanitized.stack = maskApiKeyInUrl(error.stack);
+                    sanitized.stack = sanitized.stack.replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                    sanitized.stack = sanitized.stack.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                }
+                // 기타 속성
+                sanitized.name = error.name || 'Error';
+            } catch (e) {
+                sanitized = { message: String(error), sanitizationError: 'Failed to sanitize error object' };
+            }
+            return sanitized;
+        }
+        
+        // HTTP 상태 코드에 대한 설명 반환
+        function getHttpStatusDescription(status) {
+            var descriptions = {
+                400: '잘못된 요청 (400) - 요청 데이터 형식이 올바르지 않습니다.',
+                401: '인증 실패 (401) - API 키가 유효하지 않거나 만료되었습니다.',
+                403: '권한 없음 (403) - API 키에 권한이 없습니다.',
+                404: '리소스를 찾을 수 없음 (404) - 요청한 엔드포인트가 존재하지 않습니다.',
+                429: '할당량 초과 (429) - API 사용량 제한에 도달했습니다.',
+                500: '서버 오류 (500) - 서버 측 문제가 발생했습니다.',
+                502: '게이트웨이 오류 (502) - 서버가 잘못된 응답을 반환했습니다.',
+                503: '서비스 사용 불가 (503) - 서버가 일시적으로 사용할 수 없습니다.'
+            };
+            return descriptions[status] || 'HTTP ' + status + ' - 알 수 없는 오류';
+        }
+        
+        // Gemini API 호출 쓰로틀링 (3초)
+        var lastGeminiCallTime = 0;
+        var geminiThrottleDelay = 3000; // 3초
         
         // 선택된 키워드를 저장할 변수
         let selectedKeyword = null;
@@ -312,68 +420,43 @@
         let selectedVariant = 'PC';
         // 마지막 생성된 이미지 URL / 프롬프트 (디벨롭·재생성용)
         let lastGeneratedImageUrl = '';
+        let lastGeneratedMoImageUrl = '';
+        let lastGeneratedPcImageUrl = '';
         let lastImagePrompt = '';
         let lastDetailInstructions = '';
         let lastAiMode = 'mood';
+        let lastImageSeed = null;
         
-        // 브랜드 디자인 DNA·철학 — AI 이미지/텍스트 생성 시 절대 원칙
-        const BRAND_KNOWLEDGE = {
+        // 제품 누끼컷 이미지 (image-to-image 소스: 파일 업로드 또는 URL)
+        let referenceImageComposition = '';
+        let referenceImageFromFile = null;   // data URL (업로드)
+        let referenceImageUrlFromInput = null; // https URL (입력란)
+        let referenceImageUrl = null;        // 실제 사용값 = FromFile || FromInput
+        let hasReferenceImage = false;
+        
+        function updateReferenceImage() {
+            referenceImageUrl = referenceImageFromFile || referenceImageUrlFromInput || null;
+            hasReferenceImage = !!referenceImageUrl;
+        }
+        let selectedAiMode = null;
+        let selectedImageApi = 'fal'; // 기본값: FAL API
+        
+        // ——— 1. 브랜드 라이브러리 (Style Asset Database) ———
+        var BRAND_ASSETS = {
             DV: {
-                fullName: "Duvetica",
-                philosophy: "La Bella Vita (인생을 즐기는 이탈리아인의 삶)",
-                coreValues: ["Premium Lifestyle", "Joyful", "Colorful", "Ethical Luxury"],
-                visualIdentity: {
-                    mood: "세련된 이탈리안 감성, 유니크한 컬러감, 프리미엄한 볼륨감",
-                    background: "모던한 건축물, 고급스러운 휴양지, 혹은 제품 색상을 강조하는 미니멀한 배경",
-                    lighting: "유광(Glossy) 소재의 질감을 살리는 선명하고 고급스러운 빛"
-                },
-                textStyle: "화이트 볼드 산세리프, 상단 중앙 또는 여백을 활용한 배치"
+                fullName: 'Duvetica',
+                style_keywords: 'Premium lifestyle, Italian elegance, modern resort, soft luxury lighting, refined atmosphere',
+                negative_prompt: 'dark night, messy background, urban clutter, text, logo, person'
             },
             ST: {
-                fullName: "Sergio Tacchini",
-                philosophy: "Tennis Heritage & Italian Classic (테니스 유산과 클래식의 조화)",
-                coreValues: ["Sporty Elegance", "Classic Silhouette", "Active Lifestyle", "Authentic"],
-                visualIdentity: {
-                    mood: "우아한 테니스 코트 헤리티지, 클래식 액티브웨어, 정교한 실루엣",
-                    background: "프리미엄 테니스 클럽, 클래식한 코트, 우아한 스포츠 라운지",
-                    lighting: "자연스럽고 화사한 햇살, 클래식하고 깨끗한 톤"
-                },
-                textStyle: "클래식하고 세련된 폰트, 좌측 중앙 또는 안정적인 대칭 배치"
+                fullName: 'Sergio Tacchini',
+                style_keywords: 'Classic Italian tennis club, sun-drenched clay court, premium heritage mood, soft cinematic lighting',
+                negative_prompt: 'modern city, dark night, messy background, text, logo, person'
             }
         };
         
-        // 참조 이미지 업로드 시 구도 설명 (사진 업로드 기능 연동 시 설정)
-        let referenceImageComposition = '';
-        let hasReferenceImage = false;
-        let selectedAiMode = 'mood';
-        
-        // 프롬프트 엔진: 키워드 선두 + 모드별 문구 + 브랜드 DNA (나노바나나용 영어 묘사문)
-        function buildImagePrompt(brandKey, keyword, campaignIntent, referenceDescription, mode) {
-            var brand = BRAND_KNOWLEDGE[brandKey];
-            if (!brand) return '';
-            var v = brand.visualIdentity;
-            var values = (brand.coreValues || []).join(', ');
-            var brandName = brand.fullName || brandKey;
-            var kw = (keyword || '').trim();
-            var ref = (referenceDescription || '').trim();
-            mode = mode || (ref ? 'similar' : 'mood');
-            
-            var compositionRule = '[Extreme Composition Rule]: PC – The main subject/person must be positioned on the FAR RIGHT 40% of the canvas. The LEFT 60% of the canvas must be an EMPTY, SOLID, or MINIMALIST background with absolutely NO subjects. This is for text placement. MO – The main subject/person must be positioned in the LOWER HALF (bottom 50%) of the vertical frame. The UPPER HALF (top 50%) must be a CLEAR EMPTY SPACE (like sky or a simple wall). The subject\'s face must be in the lower part of the image. ';
-            var keywordLead = compositionRule + 'Highly detailed, ' + (kw ? kw + ' core aesthetic. ' : '') + (kw ? 'The image must be dominated by the "' + kw + '" mood and atmosphere. ' : '');
-            var brandBlock = 'Brand: ' + brandName + '. ' + (v.mood ? 'Style: ' + v.mood + '. ' : '') + (v.background ? 'Background: ' + v.background + '. ' : '') + (v.lighting ? 'Lighting: ' + v.lighting + '. ' : '') + 'Core values: ' + values + '.';
-            var campaignLine = campaignIntent ? ' Campaign intent: ' + campaignIntent + '.' : '';
-            
-            var modePrompt = '';
-            if (mode === 'similar' && ref) {
-                modePrompt = 'A professional lookbook shot in ' + (kw || 'premium') + ' atmosphere, with ' + brandName + '\'s premium touch. Keep this exact pose and composition from the reference, re-create with brand style. Reference: ' + ref + '. ';
-            } else if (mode === 'cutout' && ref) {
-                modePrompt = 'Keep the subject/object exactly as in the reference, but change only the background to a ' + (kw || 'themed') + ' theme following ' + brandName + ' style. Reference composition: ' + ref + '. ';
-            } else {
-                modePrompt = (kw ? 'Free creation with strong ' + kw + ' mood and atmosphere. ' : '') + 'Reference only the color and feeling; ' + (v.mood || '') + '. ';
-            }
-            
-            return keywordLead + modePrompt + brandBlock + campaignLine;
-        }
+        // ——— 2. Gemini Creative Director: 키워드 자동 분석 및 창의적 시각화 (fal.ai Flux 최적화) ———
+        var GEMINI_CREATIVE_DIRECTOR_SYSTEM = '너는 배너 이미지용 장면을 설계하는 크리에이티브 디렉터다. **이미지 생성 AI는 fal.ai Flux 모델이고, 영어 프롬프트만 잘 이해한다. 한글 키워드·기획의도는 반드시 구체적인 영어 장면 묘사 한 문장으로 변환해라.**\n\n**Flux 모델 특성 이해:**\n- Flux는 구체적이고 상세한 프롬프트를 선호한다\n- 명사와 형용사를 풍부하게 사용하면 더 정확한 결과가 나온다\n- 조명, 색감, 분위기, 구도 등을 명시하면 좋다\n- 추상적이거나 모호한 표현보다는 시각적으로 명확한 묘사가 좋다\n\n**핵심 임무:**\n1. 주어진 키워드를 분석해라. 키워드가 무엇인지(회사명, 브랜드명, 장소명, 제품명, 개념 등) 파악하고, 그 키워드의 본질과 특징을 이해해라.\n2. 키워드와 기획의도를 배너 이미지에 창의적으로 녹여라. 키워드가 시각적으로 바로 연상되는 요소, 그 키워드의 대표적인 특징, 또는 키워드와 관련된 제품·서비스·분위기·맥락을 구체적으로 묘사해라.\n3. **Flux에 최적화된 프롬프트 작성:**\n   - 구체적인 명사 사용 (예: "refrigerator" not "appliance")\n   - 조명과 색감 명시 (예: "soft natural lighting, warm tones")\n   - 분위기와 스타일 명시 (예: "modern, minimalist, professional")\n   - 구도와 배치 명시 (예: "centered composition, spacious background")\n4. 예시(참고용, 절대 하드코딩하지 말고 키워드에 맞게 창의적으로 설계):\n   - 회사명/브랜드명이면 → 그 회사의 대표 제품·서비스·브랜드 특성을 시각적으로 반영\n   - 장소명이면 → 그 장소의 전형적인 배경·분위기·특징\n   - 제품명이면 → 그 제품이 사용되는 맥락·환경\n   - 개념/감성이면 → 그 개념을 시각적으로 표현할 수 있는 장면\n5. **실내·방·인테리어·창문·가구는 사용자가 명시적으로 실내를 요청할 때만 써라. 바다/날씨/바닷가/해변/청량 등이 나오면 무조건 야외 해안·하늘·바다 장면으로.**\n\n응답은 JSON 한 개만, 키 "backgroundPrompt" (string). backgroundPrompt는 영어 한 문장으로만, 키워드와 기획의도가 드러나는 구체적이고 상세하며 Flux에 최적화된 장면을 묘사해라.';
         
         // 상태 메시지 표시
         function setGenerateStatus(msg) {
@@ -381,147 +464,770 @@
             if (el) el.textContent = msg || '';
         }
         
-        // Gemini: v1beta + gemini-2.0-flash 단일 주소. 429 등 실패 시 알림 후 로컬 엔진 반환
-        function getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode) {
-            var brand = BRAND_KNOWLEDGE[brandKey];
-            return {
-                imagePrompt: buildImagePrompt(brandKey, keyword, campaignIntent, referenceDescription, aiMode),
-                brandCopy: (brand && brand.fullName) ? brand.fullName + ' 26SS 컬렉션' : (brandKey || '') + ' 26SS 컬렉션',
-                keywordCopy: keyword || ''
-            };
-        }
-        
-        async function callGeminiForPromptAndCopy(brandKey, keyword, campaignIntent, referenceDescription, aiMode) {
-            var brand = BRAND_KNOWLEDGE[brandKey];
-            if (!brand) return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
-            var refNote = referenceDescription ? '참조 이미지 구도/설명: ' + referenceDescription : '참조 이미지 없음';
-            var modeLabel = { similar: '유사 재생성(구도 유지)', cutout: '누끼/배경교체', mood: '분위기 참조' }[aiMode] || aiMode;
-            var promptText = [
-                'You are a creative director. Respond with ONLY a valid JSON object (no markdown) with exactly these keys: "imagePrompt" (string), "brandCopy" (string, very short brand/collection line for banner visibility: under 15 characters including spaces, e.g. "DV 26SS 컬렉션"), "keywordCopy" (string, short impactful headline: under 20 characters or 3-4 words in English so it fits MO/PC without truncation).',
-                '',
-                'IMAGE PROMPT RULES (critical):',
-                '1. Create a highly descriptive image prompt in English. Translate the user\'s keywords and detailed instructions into specific visual styles, textures, lighting, and background descriptions. Do not just use the keywords as text; turn them into a scene.',
-                '2. Keyword visualization: e.g. keyword "슈퍼볼" → include "Super Bowl core aesthetic, stadium lighting, sporty luxury mood"; "이탈리아 휴양지" → "Amalfi coast background, Mediterranean sunlight". Always convert the keyword into concrete visual mood and setting, not as on-screen text.',
-                '3. The user\'s detailed instructions (campaign intent and reference description below) must be the HIGHEST PRIORITY: put them at the very beginning of imagePrompt, translated into English. E.g. "유광 소재 강조" → "glossy material emphasis, reflective surfaces"; "어두운 배경" → "dark background, moody shadows".',
-                '4. COMPOSITION (CRITICAL – highest priority, must be at the very beginning of imagePrompt):',
-                '   Start your imagePrompt with these EXACT phrases:',
-                '   - PC/horizontal: "[Extreme Composition Rule]: The main subject/person must be positioned on the FAR RIGHT 40% of the canvas. The LEFT 60% of the canvas must be an EMPTY, SOLID, or MINIMALIST background with absolutely NO subjects. This is for text placement."',
-                '   - MO/portrait: "[Extreme Composition Rule]: The main subject/person must be positioned in the LOWER HALF (bottom 50%) of the vertical frame. The UPPER HALF (top 50%) must be a CLEAR EMPTY SPACE (like sky or a simple wall). The subject\'s face must be in the lower part of the image."',
-                '   IMPORTANT: These are MANDATORY physical constraints. The AI image generator will receive a negative prompt to prevent violations.',
-                '',
-                'Brand (absolute rule): ' + JSON.stringify(brand),
-                'Keyword: ' + (keyword || ''),
-                'Campaign intent (MUST appear first in imagePrompt, in English): ' + (campaignIntent || ''),
-                refNote,
-                'AI mode: ' + modeLabel,
-                'Return only a JSON object.'
-            ].join('\n');
+        // Gemini Creative Director 호출: 키워드+기획의도+모드+참조이미지 → 배경 전용 영어 프롬프트
+        async function callGeminiCreativeDirector(userKeyword, userInstructions, aiMode, hasReferenceImage) {
+            // 쓰로틀링 체크: 3초 이내 재호출 방지
+            var now = Date.now();
+            var timeSinceLastCall = now - lastGeminiCallTime;
+            if (timeSinceLastCall < geminiThrottleDelay) {
+                var waitTime = Math.ceil((geminiThrottleDelay - timeSinceLastCall) / 1000);
+                console.warn('⏱️ Gemini API 호출 쓰로틀링: ' + waitTime + '초 후 다시 시도하세요.');
+                return ''; // 빈 문자열 반환하여 폴백 프롬프트 사용
+            }
+            lastGeminiCallTime = now;
+            
             var apiKey = getGeminiApiKey();
-            var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
-            var requestBody = {
-                contents: [{ parts: [{ text: promptText }] }],
-                generationConfig: { response_mime_type: 'application/json' }
-            };
+            var res = null;
             try {
-                var res = await fetch(url, {
+                if (apiKey && !API_BASE) {
+                    // 서버 없이: config.js 키로 브라우저에서 Gemini 직접 호출
+                    console.log('🔵 [진행 단계] Gemini API 호출 중... (브라우저 직접)');
+                    var modeInstruction = '';
+                    if (aiMode === 'product') modeInstruction = ' Focus: product-centered commercial photography. The scene should showcase a product as the main subject.';
+                    else if (aiMode === 'person') modeInstruction = ' Focus: person/model-centered commercial photography. The scene should feature a person or model as the main subject.';
+                    var refImageNote = hasReferenceImage ? '\n\n**CRITICAL: A reference product/subject image will be provided, but the KEYWORD is the PRIMARY and DOMINANT theme. Your backgroundPrompt must describe ONLY the keyword-themed background scene that will COMPLETELY REPLACE the reference image\'s background. Do NOT describe the product itself - only describe the environment, setting, scene, atmosphere, lighting, colors, mood that represents the keyword. The product from the reference image will be placed into this background later. Focus on creating a rich, detailed background scene that represents the keyword theme - NOT a simple or plain background.' : '';
+                    var userContent = 'Analyze this keyword and create a creative visual scene for a banner image optimized for fal.ai Flux model.\n\nKeyword: "' + (userKeyword || '') + '"\nCampaign intent (기획 의도 및 강조점): "' + (userInstructions || '') + '"' + refImageNote + '\n\n' + modeInstruction + '\n\n**Your task (optimized for Flux):**\n1. Analyze what this keyword represents (company/brand, place, product, concept, etc.)\n2. Understand the essence and characteristics of this keyword\n3. Design a creative visual scene that incorporates the keyword and campaign intent into the banner' + (hasReferenceImage ? '\n4. **If a reference product/subject image is provided:** Describe ONLY the background environment, setting, atmosphere, lighting, colors, mood that represents the keyword theme. Do NOT describe the product itself - the product will be added separately. Focus on creating a complete, detailed background scene that the keyword represents.' : '') + '\n4. **Write a detailed, specific English prompt optimized for Flux:**\n   - Use concrete nouns and descriptive adjectives\n   - Specify lighting, color tones, mood, and style\n   - Include composition and spatial arrangement details\n   - Make it visually clear and immediately recognizable\n   - ' + (hasReferenceImage ? 'Describe ONLY the background scene, environment, setting - NOT any products or subjects' : '') + '\n5. Be creative and thoughtful.\n\n**Important:** Flux works best with detailed, specific descriptions. One sentence only, but make it detailed and specific.';
+                    res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            systemInstruction: { parts: [{ text: GEMINI_CREATIVE_DIRECTOR_SYSTEM }] },
+                            contents: [{ role: 'user', parts: [{ text: userContent }] }],
+                            generationConfig: { response_mime_type: 'application/json', maxOutputTokens: 256 }
+                        })
+                    });
+                    var data = await res.json().catch(function() { return {}; });
+                    if (!res.ok) throw new Error(data.error?.message || 'Gemini API 오류: ' + res.status);
+                    var text = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) ? data.candidates[0].content.parts[0].text : '';
+                    text = (text || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+                    var parsed = (function() { try { var m = text.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : {}; } catch (e) { return {}; } })();
+                    var result = (parsed.backgroundPrompt && String(parsed.backgroundPrompt).trim()) ? String(parsed.backgroundPrompt).trim() : '';
+                    console.log('✅ [진행 단계] Gemini 키워드 분석 완료');
+                    return result;
+                }
+                // 서버 사용 시
+                console.log('🔵 [진행 단계] Gemini API 호출 중... (서버 /api/gemini)');
+                res = await fetch(API_BASE + '/api/gemini', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify({
+                        userKeyword: userKeyword || '',
+                        userInstructions: userInstructions || '',
+                        aiMode: aiMode || null,
+                        hasReferenceImage: !!hasReferenceImage
+                    })
                 });
-                var data = await res.json();
-                console.log('Gemini API 응답 (gemini-2.0-flash):', data);
+                var data = await res.json().catch(function() { return {}; });
                 if (!res.ok) {
-                    console.error('Gemini API 에러:', 'response.status=' + res.status, 'response.statusText=' + res.statusText, data);
-                    if (res.status === 429) {
-                        alert('호출량이 많아 잠시 후 다시 시도해주세요 (로컬 엔진으로 자동 전환합니다)');
-                    }
-                    return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
+                    console.error('❌ Gemini API 응답 오류:', res.status, data);
+                    throw new Error(data.error || 'Gemini API 오류: ' + res.status);
                 }
-                if (data.error) {
-                    console.error('Gemini API 에러:', 'response.status=' + res.status, 'response.statusText=' + res.statusText, data.error);
-                    if (res.status === 429) {
-                        alert('호출량이 많아 잠시 후 다시 시도해주세요 (로컬 엔진으로 자동 전환합니다)');
-                    }
-                    return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
-                }
-                var text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : '';
-                if (!text) return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
-                text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-                var jsonMatch = text.match(/\{[\s\S]*\}/);
-                var parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
-                console.log('Gemini 파싱 결과 (imagePrompt, brandCopy, keywordCopy):', parsed);
-                return {
-                    imagePrompt: (parsed.imagePrompt || '').trim() || buildImagePrompt(brandKey, keyword, campaignIntent, referenceDescription, aiMode),
-                    brandCopy: (parsed.brandCopy || '').trim() || (brand.fullName || brandKey) + ' 26SS 컬렉션',
-                    keywordCopy: (parsed.keywordCopy || '').trim() || (keyword || '')
-                };
+                var result = (data.backgroundPrompt && String(data.backgroundPrompt).trim()) ? String(data.backgroundPrompt).trim() : '';
+                console.log('✅ [진행 단계] Gemini 키워드 분석 완료');
+                return result;
             } catch (e) {
-                console.error('Gemini 호출 예외:', e.message || e);
-                return getLocalFallback(brandKey, keyword, campaignIntent, referenceDescription, aiMode);
+                console.error('❌ Gemini Creative Director 호출 실패');
+                
+                // 상세 에러 정보 출력 (API 키 마스킹)
+                var sanitizedError = sanitizeErrorForLogging(e);
+                if (sanitizedError) {
+                    console.error('📝 에러 메시지:', sanitizedError.message);
+                    if (sanitizedError.response) {
+                        console.error('📊 HTTP 상태 코드:', sanitizedError.response.status, '(' + sanitizedError.response.statusText + ')');
+                        console.error('📋 상태 코드 설명:', getHttpStatusDescription(sanitizedError.response.status));
+                        if (sanitizedError.response.data) {
+                            console.error('📄 응답 데이터:', sanitizedError.response.data);
+                        }
+                    }
+                    if (sanitizedError.stack) {
+                        console.error('🔍 에러 스택 (API 키 마스킹됨):', sanitizedError.stack);
+                    }
+                } else {
+                    // sanitizeErrorForLogging이 실패한 경우 기본 마스킹
+                    var errorMsg = e.message || String(e);
+                    errorMsg = maskApiKeyInUrl(errorMsg);
+                    errorMsg = errorMsg.replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                    errorMsg = errorMsg.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                    console.error('📝 에러 메시지:', errorMsg);
+                }
+                
+                // res 객체가 있는 경우 상태 코드 출력
+                if (res) {
+                    console.error('📊 HTTP 상태 코드:', res.status, '(' + res.statusText + ')');
+                    console.error('📋 상태 코드 설명:', getHttpStatusDescription(res.status));
+                }
+                
+                // 전체 에러 객체 출력 (순환 참조 방지)
+                    try {
+                        var errorObj = {
+                            name: e.name,
+                            message: sanitizedError ? sanitizedError.message : (e.message || String(e)),
+                            stack: sanitizedError ? sanitizedError.stack : (e.stack || '')
+                        };
+                        console.error('📦 전체 에러 객체 (API 키 마스킹됨):');
+                        console.error('   - 에러 이름:', errorObj.name);
+                        console.error('   - 에러 메시지:', errorObj.message);
+                        if (errorObj.stack) {
+                            console.error('   - 에러 스택:', errorObj.stack);
+                        }
+                        console.error('   - 전체 객체:', errorObj);
+                    } catch (err) {
+                        console.error('⚠️ 에러 객체 직렬화 실패:', err);
+                    }
+                
+                console.warn('🔄 키워드를 직접 분석하여 폴백 프롬프트를 생성합니다.');
+                return '';
             }
         }
         
-        // fal.ai Flux 이미지 생성. PC용 가로형/MO용 세로형 구분, 구도 지침 강제, 부정 프롬프트 적용. seed 있으면 해당 시드로 생성(재생성 시 다른 결과용).
-        function fetchNanoBananaImage(prompt, mode, detailInstructions, seed, isMo) {
-            var promptBase = prompt || 'fashion banner, high quality';
-            var detailPart = (detailInstructions && (detailInstructions = String(detailInstructions).trim())) ? ('Critical visual requirements - apply first: ' + detailInstructions + '. ') : '';
-            var finalPrompt = detailPart + promptBase;
+        // ——— 3. 프롬프트 퓨전: 선택된 키워드 + 기획 의도·강조점 + 모드 반영 (Gemini 실패 시 영어 폴백으로 실내 방지) ———
+        function fusePrompt(selectedBrand, userKeyword, userInstructions, geminiBackgroundPrompt, isMo, aiMode) {
+            var base = 'High quality, 8k, professional.';
+            var themeFirst = (geminiBackgroundPrompt && String(geminiBackgroundPrompt).trim()) ? String(geminiBackgroundPrompt).trim() : '';
+            var kw = (userKeyword && String(userKeyword).trim()) ? 'Theme and setting: ' + String(userKeyword).trim() + '.' : '';
+            var instruction = (userInstructions && String(userInstructions).trim()) ? String(userInstructions).trim() : '';
+            var modePrompt = '';
+            if (aiMode === 'product') {
+                modePrompt = 'Product-centered composition, product as main subject, commercial product photography.';
+            } else if (aiMode === 'person') {
+                modePrompt = 'Person-centered composition, model or person as main subject, commercial portrait photography.';
+            }
+            // aiMode가 null이거나 빈 값이면 modePrompt는 빈 문자열로 유지 (키워드와 기획 의도만으로 생성)
+            var fallback = '';
+            // Gemini가 실패했을 때 키워드를 직접 분석해서 폴백 생성
+            if (!themeFirst && (kw || instruction)) {
+                var keywordStr = (userKeyword || '').toLowerCase();
+                var hasBeach = /바다|바닷가|해변|청량|날씨|부산|해안|ocean|beach|seaside|sea\b/i.test((userKeyword || '') + ' ' + (userInstructions || ''));
+                if (hasBeach) {
+                    fallback = 'Outdoor scene: refreshing seaside, ocean view, beach, clear sky, coastal vibe. No indoor, no room, no furniture.';
+                } else if (/lg전자|lg\s*전자|lg\s*electronics/i.test(keywordStr)) {
+                    fallback = 'Modern LG electronics showroom, home appliances display, smart home technology, TVs, refrigerators, washing machines, tech products, contemporary retail environment, professional lighting.';
+                } else if (/삼성전자|samsung\s*전자|samsung\s*electronics/i.test(keywordStr)) {
+                    fallback = 'Samsung electronics showcase, smartphones, TVs, home appliances, technology innovation, modern tech products, sleek retail space, professional commercial photography.';
+                } else if (/애플|apple/i.test(keywordStr)) {
+                    fallback = 'Apple products display, iPhone, MacBook, iPad, minimalist tech design, modern technology, clean retail environment, professional product photography.';
+                } else if (/나이키|nike/i.test(keywordStr)) {
+                    fallback = 'Nike sportswear showcase, athletic gear, sports equipment, active lifestyle, athletic performance, modern sports retail, dynamic commercial photography.';
+                } else if (/대학교|university|대학/i.test(keywordStr)) {
+                    fallback = 'University campus, academic building, library, modern educational institution, student environment, professional academic setting.';
+                }
+            }
+            var composition = isMo
+                ? 'Leave top 60% of frame empty for typography.'
+                : 'Leave left 60% of frame empty for typography.';
+            var parts = [base, themeFirst, fallback, modePrompt, kw, instruction, composition].filter(Boolean);
+            return parts.join(' ');
+        }
+        
+        // 프롬프트 + 브랜드/키워드 복사용 결과 (Gemini Creative Director + 퓨전)
+        async function getPromptResult(selectedBrand, selectedKeyword, campaignIntent, aiMode, hasReferenceImage) {
+            console.log('🔵 [진행 단계] 프롬프트 생성 시작');
+            setGenerateStatus('크리에이티브 디렉터가 배경을 설계하는 중...');
+            
+            // 참조 이미지가 있을 경우 크기 확인 및 경고
+            if (hasReferenceImage && referenceImageUrl) {
+                var base64Length = referenceImageUrl.length;
+                var estimatedSizeKB = Math.round((base64Length - 22) * 0.75 / 1024); // data:image/jpeg;base64, 제외
+                console.log('📊 참조 이미지 크기:', estimatedSizeKB + ' KB (base64)');
+                if (estimatedSizeKB > 500) {
+                    console.warn('⚠️ 참조 이미지가 큽니다 (' + estimatedSizeKB + ' KB). API 요청 크기가 클 수 있습니다.');
+                }
+            }
+            
+            var geminiBackground = await callGeminiCreativeDirector(selectedKeyword, campaignIntent, aiMode, hasReferenceImage);
+            console.log('🟡 [진행 단계] 프롬프트 퓨전 중...');
+            var imagePromptPc = fusePrompt(selectedBrand, selectedKeyword, campaignIntent, geminiBackground, false, aiMode);
+            var imagePromptMo = fusePrompt(selectedBrand, selectedKeyword, campaignIntent, geminiBackground, true, aiMode);
+            console.log('✅ [진행 단계] 프롬프트 생성 완료');
+            var brand = BRAND_ASSETS[selectedBrand];
+            var brandCopy = (brand && brand.fullName) ? brand.fullName + ' 26SS 컬렉션' : (selectedBrand || '') + ' 26SS 컬렉션';
+            return {
+                imagePrompt: imagePromptPc,
+                imagePromptMo: imagePromptMo,
+                brandCopy: brandCopy,
+                keywordCopy: selectedKeyword || ''
+            };
+        }
+        
+        // ——— 4. fal.ai Flux 이미지 생성 (키워드·지침 우선, 참조 이미지 있으면 2단계 접근: 배경 먼저 생성 후 제품 합성) ———
+        function fetchNanoBananaImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl) {
+            var imageType = isMo ? 'MO' : 'PC';
+            console.log('🟡 [진행 단계] FAL API 호출 중... (' + imageType + ' 이미지 생성)');
+            
+            var imageSize = isMo ? 'portrait_16_9' : 'landscape_16_9';
+            var negativePrompt = 'text, watermark, blurry, distorted, deformed';
             var apiKey = getFalApiKey();
-            var negativePrompt = isMo ? 'face in top half, subject in upper part, head in upper third' : 'subject in center, subject on left, face in center, person covering left side';
-            var imageSize = isMo ? 'portrait_9_16' : 'landscape_16_9';
-            var body = { prompt: finalPrompt, image_size: imageSize, negative_prompt: negativePrompt };
-            if (seed != null) body.seed = seed;
-            return fetch('https://fal.run/fal-ai/flux/dev', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Key ' + apiKey
-                },
-                body: JSON.stringify(body)
-            })
+            var useDirectFal = apiKey && !API_BASE;
+            
+            // 참조 이미지(파일 data URL 또는 이미지 URL)가 있으면 2단계: 키워드 배경 생성 → 제품 합성
+            if (productImageUrl) {
+                var isUrl = typeof productImageUrl === 'string' && /^https?:\/\//i.test(productImageUrl.trim());
+                console.log('🔄 [2단계 접근] 참조 이미지 사용 (' + (isUrl ? 'URL' : '업로드') + ') → 1단계: 키워드 배경 생성...');
+                
+                var backgroundPrompt = fusedPrompt + ' This is a background scene only. No products, no subjects, no objects in the foreground. Just the environment, setting, atmosphere, and scene that represents the keyword theme. The background should fill the entire image.';
+                var backgroundNegativePrompt = negativePrompt + ', product, object, subject, person, item, thing, foreground object, main subject';
+                var body1 = { prompt: backgroundPrompt, image_size: imageSize, negative_prompt: backgroundNegativePrompt, seed: seed != null ? seed : undefined };
+                
+                var url1 = useDirectFal ? 'https://fal.run/fal-ai/flux/dev' : (API_BASE + '/api/fal/text-to-image');
+                var opts1 = useDirectFal ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + apiKey }, body: JSON.stringify(body1) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body1) };
+                return fetch(url1, opts1)
                 .then(function(r) {
-                    if (!r.ok) throw new Error('fal.ai 응답 오류: ' + r.status);
+                    if (!r.ok) {
+                        return r.json().then(function(errorData) {
+                            throw { response: r, errorData: errorData };
+                        }).catch(function() {
+                            throw { response: r, errorData: { error: { message: 'Unknown error' } } };
+                        });
+                    }
                     return r.json();
                 })
                 .then(function(data) {
-                    var url = (data && data.images && data.images[0] && data.images[0].url) ? data.images[0].url : null;
-                    if (!url) throw new Error('fal.ai 이미지 URL 없음');
+                    var backgroundUrl = (data && data.images && data.images[0] && data.images[0].url) ? data.images[0].url : null;
+                    if (!backgroundUrl) throw new Error('배경 이미지 생성 실패');
+                    
+                    console.log('✅ [2단계 접근] 1단계 완료: 배경 생성됨');
+                    console.log('🔄 [2단계 접근] 2단계: 배경 위에 제품 합성...');
+                    
+                    // 2단계: 제품 이미지를 참조로 사용하되, 배경은 완전히 무시하고 생성된 배경으로 교체
+                    // 핵심: 제품 이미지의 제품만 추출하고, 배경은 생성된 배경으로 완전히 교체
+                    var imageUrlForApi = (typeof productImageUrl === 'string' && productImageUrl.trim()) ? productImageUrl.trim() : productImageUrl;
+                    var strength = 0.12; // 매우 낮은 strength로 제품만 유지하고 배경은 완전히 교체
+                    
+                    // 프롬프트: 생성된 배경을 강조하고, 제품은 참조 이미지에서만 가져오도록
+                    // 배경 교체를 매우 강력하게 지시
+                    var compositePrompt = fusedPrompt + ' IGNORE AND COMPLETELY REMOVE the background from the reference image. REPLACE it entirely with this keyword-themed background scene. Extract ONLY the main product/subject (clothing, item, object) from the reference image and place it naturally within the new keyword-themed background. The original background (black, grey, white, or any solid color) must be completely gone and replaced with the keyword scene. The product should appear as if it was photographed in this new environment. Do not preserve any part of the original background.';
+                    
+                    var body2 = { image_url: imageUrlForApi, prompt: compositePrompt, strength: strength, image_size: imageSize, negative_prompt: negativePrompt + ', plain background, grey background, simple background, black background, white background, neutral background, product photography background, studio background, solid color background, monochrome background, uniform background, empty background, void background', seed: seed != null ? seed : undefined };
+                    var url2 = useDirectFal ? 'https://fal.run/fal-ai/flux/dev/image-to-image' : (API_BASE + '/api/fal/image-to-image');
+                    var opts2 = useDirectFal ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + apiKey }, body: JSON.stringify(body2) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body2) };
+                    return fetch(url2, opts2)
+                    .then(function(r2) {
+                        if (!r2.ok) {
+                            return r2.json().then(function(errorData) {
+                                throw { response: r2, errorData: errorData };
+                            }).catch(function() {
+                                throw { response: r2, errorData: { error: { message: 'Unknown error' } } };
+                            });
+                        }
+                        return r2.json();
+                    })
+                    .then(function(data2) {
+                        var compositeUrl = (data2 && data2.images && data2.images[0] && data2.images[0].url) ? data2.images[0].url : null;
+                        if (!compositeUrl) {
+                            console.warn('⚠️ 제품 합성 실패, 배경만 반환');
+                            return backgroundUrl;
+                        }
+                        console.log('✅ [2단계 접근] 2단계 완료: 제품 합성됨');
+                        return compositeUrl;
+                    })
+                    .catch(function(err2) {
+                        console.warn('⚠️ 제품 합성 단계 오류 (배경만 반환):', err2 && (err2.message || err2.errorData));
+                        return backgroundUrl;
+                    });
+                })
+                .then(function(finalUrl) {
+                    console.log('✅ [진행 단계] FAL 이미지 생성 완료 (' + imageType + ')');
+                    return finalUrl;
+                })
+                .catch(function(err) {
+                    console.error('❌ FAL API 이미지 생성 실패 (' + imageType + ')');
+                    // 에러 처리 (기존 코드와 동일)
+                    var sanitizedError = sanitizeErrorForLogging(err);
+                    if (sanitizedError) {
+                        console.error('📝 에러 메시지:', sanitizedError.message);
+                        if (sanitizedError.response) {
+                            console.error('📊 HTTP 상태 코드:', sanitizedError.response.status, '(' + sanitizedError.response.statusText + ')');
+                            console.error('📋 상태 코드 설명:', getHttpStatusDescription(sanitizedError.response.status));
+                            if (sanitizedError.response.data) {
+                                console.error('📄 응답 데이터:', sanitizedError.response.data);
+                            }
+                        }
+                    }
+                    return 'https://picsum.photos/seed/fallback/1920/1080';
+                });
+            } else {
+                // 참조 이미지 없으면 text-to-image — 서버 /api/fal/text-to-image
+                var body = { prompt: fusedPrompt, image_size: imageSize, negative_prompt: negativePrompt };
+                if (seed != null) body.seed = seed;
+                var responseObj = null;
+                var url0 = useDirectFal ? 'https://fal.run/fal-ai/flux/dev' : (API_BASE + '/api/fal/text-to-image');
+                var opts0 = useDirectFal ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + apiKey }, body: JSON.stringify(body) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+                return fetch(url0, opts0)
+                    .then(function(r) {
+                        responseObj = r;
+                        if (!r.ok) {
+                            return r.json().then(function(errorData) {
+                                throw { response: r, errorData: errorData };
+                            }).catch(function() {
+                                throw { response: r, errorData: { error: { message: 'Unknown error' } } };
+                            });
+                        }
+                        console.log('✅ [진행 단계] FAL API 응답 수신 완료 (' + imageType + ')');
+                        return r.json();
+                    })
+                    .then(function(data) {
+                        console.log('🟡 [진행 단계] 응답 데이터 파싱 중... (' + imageType + ')');
+                        var url = (data && data.images && data.images[0] && data.images[0].url) ? data.images[0].url : null;
+                        if (!url) throw new Error('fal.ai 이미지 URL 없음');
+                        console.log('✅ [진행 단계] FAL 이미지 생성 완료 (' + imageType + ')');
+                        return url;
+                    })
+                    .catch(function(err) {
+                        console.error('❌ FAL API 이미지 생성 실패 (' + imageType + ')');
+                        
+                        // 상세 에러 정보 출력
+                        var sanitizedError = sanitizeErrorForLogging(err);
+                        if (sanitizedError) {
+                            console.error('📝 에러 메시지:', sanitizedError.message);
+                            if (sanitizedError.response) {
+                                console.error('📊 HTTP 상태 코드:', sanitizedError.response.status, '(' + sanitizedError.response.statusText + ')');
+                                console.error('📋 상태 코드 설명:', getHttpStatusDescription(sanitizedError.response.status));
+                                if (sanitizedError.response.data) {
+                                    console.error('📄 응답 데이터:', sanitizedError.response.data);
+                                }
+                            }
+                        }
+                        
+                        // responseObj가 있는 경우 (fetch 성공했지만 !r.ok인 경우)
+                        if (responseObj) {
+                            console.error('📊 HTTP 상태 코드:', responseObj.status, '(' + responseObj.statusText + ')');
+                            console.error('📋 상태 코드 설명:', getHttpStatusDescription(responseObj.status));
+                        }
+                        
+                        // err.errorData가 있는 경우 (응답 본문 파싱 성공)
+                        if (err && err.errorData) {
+                            var safeErrorData = JSON.stringify(err.errorData).replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                            safeErrorData = safeErrorData.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                            try {
+                                console.error('📄 응답 데이터 (API 키 마스킹됨):', JSON.parse(safeErrorData));
+                            } catch (e) {
+                                console.error('📄 응답 데이터:', safeErrorData);
+                            }
+                        }
+                        
+                        // 전체 에러 객체 출력
+                        try {
+                            var errorObj = {
+                                name: err.name || 'Error',
+                                message: sanitizedError ? sanitizedError.message : (err.message || String(err)),
+                                response: sanitizedError ? sanitizedError.response : (err.response || null),
+                                errorData: err.errorData || null
+                            };
+                            console.error('📦 전체 에러 객체 (API 키 마스킹됨):', errorObj);
+                        } catch (e) {
+                            console.error('⚠️ 에러 객체 직렬화 실패');
+                        }
+                        
+                    return 'https://picsum.photos/seed/fallback/1920/1080';
+                });
+            }
+        }
+        
+        // ——— 5. Replicate API 이미지 생성 (ControlNet으로 정확한 배경 교체) ———
+        function fetchReplicateImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl, retried) {
+            if (!API_BASE) {
+                return Promise.reject(new Error('Replicate는 서버(node server.js) 실행 후 사용할 수 있습니다. 지금은 FAL API를 선택하거나, 로컬에서 node server.js를 실행해 주세요.'));
+            }
+            var imageType = isMo ? 'MO' : 'PC';
+            if (retried) console.log('🟡 [진행 단계] Replicate API 재시도 중... (' + imageType + ')');
+            else console.log('🟡 [진행 단계] Replicate API 호출 중... (' + imageType + ' 이미지 생성)');
+            if (fusedPrompt && fusedPrompt.trim()) {
+                console.log('📝 Replicate에 전달하는 프롬프트:', fusedPrompt.trim().substring(0, 200) + (fusedPrompt.length > 200 ? '...' : ''));
+            } else {
+                console.warn('⚠️ Replicate 프롬프트가 비어 있습니다. 키워드 반영 이미지가 나오지 않을 수 있습니다.');
+            }
+            // Replicate API 키는 서버(.env)에서 관리. 서버에 없으면 503 반환
+            
+            // 참조 이미지가 있으면 2단계 접근 (배경 생성 → 제품 합성)
+            if (productImageUrl) {
+                console.log('🔄 [Replicate 2단계 접근] 1단계: 키워드 배경 먼저 생성...');
+                
+                // 1단계: 키워드 배경만 먼저 생성
+                var backgroundPrompt = fusedPrompt + ' This is a background scene only. No products, no subjects, no objects in the foreground. Just the environment, setting, atmosphere, and scene that represents the keyword theme. The background should fill the entire image.';
+                
+                // 서버 프록시를 통해 Replicate API 호출 (CORS 문제 해결)
+                var proxyUrl = API_BASE + '/api/replicate';
+                return fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        version: "black-forest-labs/flux-dev",
+                        input: {
+                            prompt: backgroundPrompt,
+                            aspect_ratio: isMo ? '9:16' : '16:9',
+                            output_format: 'webp',
+                            seed: seed != null ? seed : undefined
+                        }
+                    })
+                })
+                .then(function(r) {
+                    if (!r.ok) {
+                        return r.json().then(function(errorData) {
+                            throw { response: r, errorData: errorData };
+                        }).catch(function() {
+                            throw { response: r, errorData: { error: { message: 'Unknown error' } } };
+                        });
+                    }
+                    return r.json();
+                })
+                .then(function(data) {
+                    // Replicate는 비동기 처리이므로 prediction을 확인해야 함
+                    var predictionId = data.id;
+                    console.log('✅ [Replicate 2단계 접근] 1단계 예측 생성됨:', predictionId);
+                    
+                    // 결과를 기다리는 함수
+                    function waitForPrediction(predictionId) {
+                        return new Promise(function(resolve, reject) {
+                            function checkStatus() {
+                                // 서버 프록시를 통해 상태 확인
+                                fetch(API_BASE + '/api/replicate/' + predictionId)
+                                .then(function(r) { return r.json(); })
+                                .then(function(prediction) {
+                                    if (prediction.status === 'succeeded') {
+                                        var backgroundUrl = prediction.output && prediction.output[0] ? prediction.output[0] : null;
+                                        if (!backgroundUrl) {
+                                            reject(new Error('배경 이미지 생성 실패'));
+                                            return;
+                                        }
+                                        console.log('✅ [Replicate 2단계 접근] 1단계 완료: 배경 생성됨');
+                                        console.log('🔄 [Replicate 2단계 접근] 2단계: 배경 위에 제품 합성...');
+                                        
+                                        // 2단계: ControlNet으로 배경 위에 제품 합성
+                                        var imageUrlForApi = (typeof productImageUrl === 'string' && productImageUrl.trim()) ? productImageUrl.trim() : productImageUrl;
+                                        var compositePrompt = fusedPrompt + ' Place the product/subject from the reference image naturally into this background scene. The product should blend seamlessly into the environment. Keep the background scene unchanged - only add the product from the reference image.';
+                                        
+                                        // 서버 프록시를 통해 Replicate API 호출
+                                        fetch(API_BASE + '/api/replicate', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({
+                                                version: "runvnc/controlnet2",
+                                                input: {
+                                                    image: imageUrlForApi,
+                                                    prompt: compositePrompt,
+                                                    structure: "background_mask",
+                                                    strength: 0.8,
+                                                    scale: 7.5
+                                                }
+                                            })
+                                        })
+                                        .then(function(r2) {
+                                            if (!r2.ok) {
+                                                return r2.json().then(function(errorData) {
+                                                    throw { response: r2, errorData: errorData };
+                                                });
+                                            }
+                                            return r2.json();
+                                        })
+                                        .then(function(data2) {
+                                            var compositePredictionId = data2.id;
+                                            return waitForPrediction(compositePredictionId);
+                                        })
+                                        .then(function(finalUrl) {
+                                            console.log('✅ [Replicate 2단계 접근] 2단계 완료: 제품 합성됨');
+                                            resolve(finalUrl);
+                                        })
+                                        .catch(function(err) {
+                                            console.warn('⚠️ 제품 합성 실패, 배경만 반환');
+                                            resolve(backgroundUrl);
+                                        });
+                                    } else if (prediction.status === 'failed') {
+                                        reject(new Error(prediction.error || '예측 실패'));
+                                    } else {
+                                        // 아직 처리 중이면 1초 후 다시 확인
+                                        setTimeout(checkStatus, 1000);
+                                    }
+                                })
+                                .catch(reject);
+                            }
+                            checkStatus();
+                        });
+                    }
+                    
+                    return waitForPrediction(predictionId);
+                })
+                .then(function(finalUrl) {
+                    console.log('✅ [진행 단계] Replicate 이미지 생성 완료 (' + imageType + ')');
+                    return finalUrl;
+                })
+                .catch(function(err) {
+                    console.error('❌ Replicate API 이미지 생성 실패 (' + imageType + ')');
+                    var sanitizedError = sanitizeErrorForLogging(err);
+                    if (sanitizedError) {
+                        console.error('📝 에러 메시지:', sanitizedError.message);
+                        if (sanitizedError.response) {
+                            console.error('📊 HTTP 상태 코드:', sanitizedError.response.status);
+                        }
+                    }
+                    if (err.response && err.response.status === 429 && !retried) {
+                        console.warn('⏳ 429 한도 초과. 35초 후 자동 재시도 (1회)...');
+                        if (typeof setGenerateStatus === 'function') setGenerateStatus('Replicate 한도 초과. 35초 후 자동 재시도...');
+                        return new Promise(function(go) { setTimeout(go, 35000); }).then(function() {
+                            if (typeof setGenerateStatus === 'function') setGenerateStatus('재시도 중...');
+                            return fetchReplicateImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl, true);
+                        });
+                    }
+                    return Promise.reject(err);
+                });
+            } else {
+                // 참조 이미지 없으면 배경만 생성
+                // 서버 프록시를 통해 Replicate API 호출
+                return fetch(API_BASE + '/api/replicate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        version: "black-forest-labs/flux-dev",
+                        input: {
+                            prompt: fusedPrompt,
+                            aspect_ratio: isMo ? '9:16' : '16:9',
+                            output_format: 'webp',
+                            seed: seed != null ? seed : undefined
+                        }
+                    })
+                })
+                .then(function(r) {
+                    if (!r.ok) {
+                        return r.json().then(function(errorData) {
+                            throw { response: r, errorData: errorData };
+                        }).catch(function() {
+                            throw { response: r, errorData: { error: '서버 응답 파싱 실패' } };
+                        });
+                    }
+                    return r.json();
+                })
+                .catch(function(err) {
+                    // 네트워크 오류 (서버 미실행 등)
+                    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED'))) {
+                        console.error('❌ 서버 연결 실패: server.js가 실행 중인지 확인하세요.');
+                        console.error('💡 해결 방법: 터미널에서 "node server.js" 실행 후 다시 시도하세요.');
+                        console.log('💡 자동으로 FAL API로 폴백합니다.');
+                        return fetchNanoBananaImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl);
+                    }
+                    throw err;
+                })
+                .then(function(data) {
+                    // data가 이미 FAL API 결과(URL 문자열)인 경우
+                    if (typeof data === 'string') {
+                        return data;
+                    }
+                    var predictionId = data.id;
+                    function waitForPrediction(predictionId) {
+                        return new Promise(function(resolve, reject) {
+                            function checkStatus() {
+                                // 서버 프록시를 통해 상태 확인
+                                fetch(API_BASE + '/api/replicate/' + predictionId)
+                                .then(function(r) { return r.json(); })
+                                .then(function(prediction) {
+                                    if (prediction.status === 'succeeded') {
+                                        var url = prediction.output && prediction.output[0] ? prediction.output[0] : null;
+                                        if (!url) reject(new Error('이미지 URL 없음'));
+                                        else resolve(url);
+                                    } else if (prediction.status === 'failed') {
+                                        reject(new Error(prediction.error || '예측 실패'));
+                                    } else {
+                                        setTimeout(checkStatus, 1000);
+                                    }
+                                })
+                                .catch(function(err) {
+                                    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED'))) {
+                                        console.error('❌ 서버 연결 실패: waitForPrediction 중');
+                                        console.log('💡 자동으로 FAL API로 폴백합니다.');
+                                        fetchNanoBananaImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl)
+                                            .then(resolve)
+                                            .catch(reject);
+                                    } else {
+                                        reject(err);
+                                    }
+                                });
+                            }
+                            checkStatus();
+                        });
+                    }
+                    return waitForPrediction(predictionId);
+                })
+                .then(function(url) {
+                    console.log('✅ [진행 단계] Replicate 이미지 생성 완료 (' + imageType + ')');
                     return url;
                 })
                 .catch(function(err) {
-                    console.error('fal.ai 이미지 생성 실패:', err);
-                    return 'https://picsum.photos/seed/fallback/1920/1080';
+                    console.error('❌ Replicate API 이미지 생성 실패 (' + imageType + ')');
+                    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED'))) {
+                        console.error('⚠️ 서버 연결 실패: server.js가 실행 중인지 확인하세요. (node server.js)');
+                        console.error('💡 자동으로 FAL API로 폴백합니다.');
+                        return fetchNanoBananaImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl);
+                    }
+                    if (err.response && err.response.status === 429 && !retried) {
+                        console.warn('⏳ 429 한도 초과. 35초 후 자동 재시도 (1회)...');
+                        if (typeof setGenerateStatus === 'function') setGenerateStatus('Replicate 한도 초과. 35초 후 자동 재시도...');
+                        return new Promise(function(go) { setTimeout(go, 35000); }).then(function() {
+                            if (typeof setGenerateStatus === 'function') setGenerateStatus('재시도 중...');
+                            return fetchReplicateImage(selectedBrand, fusedPrompt, seed, isMo, productImageUrl, true);
+                        });
+                    }
+                    return Promise.reject(err);
                 });
+            }
         }
         
         // fal.ai Flux Image-to-Image (디벨롭: 현재 이미지 URL + 피드백, strength 0.45)
         function fetchFluxImageToImage(imageUrl, prompt, strength) {
+            var falKey = getFalApiKey();
+            var useDirect = falKey && !API_BASE;
+            console.log('🟡 [진행 단계] FAL API 이미지 디벨롭 중...' + (useDirect ? ' (직접 fal.run)' : ' (서버 /api/fal/image-to-image)'));
             strength = strength == null ? 0.45 : Math.min(1, Math.max(0, strength));
-            var apiKey = getFalApiKey();
-            return fetch('https://fal.run/fal-ai/flux/dev/image-to-image', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Key ' + apiKey
-                },
-                body: JSON.stringify({
-                    image_url: imageUrl,
-                    prompt: prompt || 'Keep the same composition, improve quality.',
-                    strength: strength
-                })
-            })
+            var body = { image_url: imageUrl, prompt: prompt || 'Keep the same composition, improve quality.', strength: strength };
+            var url = useDirect ? 'https://fal.run/fal-ai/flux/dev/image-to-image' : (API_BASE + '/api/fal/image-to-image');
+            var opts = useDirect ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + falKey }, body: JSON.stringify(body) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+            var responseObj = null;
+            return fetch(url, opts)
                 .then(function(r) {
-                    if (!r.ok) throw new Error('fal.ai image-to-image 응답 오류: ' + r.status);
+                    responseObj = r;
+                    if (!r.ok) {
+                        return r.json().then(function(errorData) {
+                            throw { response: r, errorData: errorData };
+                        }).catch(function() {
+                            throw { response: r, errorData: { error: { message: 'Unknown error' } } };
+                        });
+                    }
+                    console.log('✅ [진행 단계] FAL API 디벨롭 응답 수신 완료');
                     return r.json();
                 })
                 .then(function(data) {
+                    console.log('🟡 [진행 단계] 디벨롭 응답 데이터 파싱 중...');
                     var url = (data && data.images && data.images[0] && data.images[0].url) ? data.images[0].url : null;
                     if (!url) throw new Error('fal.ai image-to-image URL 없음');
+                    console.log('✅ [진행 단계] FAL 이미지 디벨롭 완료');
                     return url;
                 })
                 .catch(function(err) {
-                    console.error('fal.ai 이미지 디벨롭 실패:', err);
+                    console.error('❌ FAL API 이미지 디벨롭 실패');
+                    
+                    // 상세 에러 정보 출력
+                    var sanitizedError = sanitizeErrorForLogging(err);
+                    if (sanitizedError) {
+                        console.error('📝 에러 메시지:', sanitizedError.message);
+                        if (sanitizedError.response) {
+                            console.error('📊 HTTP 상태 코드:', sanitizedError.response.status, '(' + sanitizedError.response.statusText + ')');
+                            console.error('📋 상태 코드 설명:', getHttpStatusDescription(sanitizedError.response.status));
+                            if (sanitizedError.response.data) {
+                                console.error('📄 응답 데이터:', sanitizedError.response.data);
+                            }
+                        }
+                    }
+                    
+                    if (responseObj) {
+                        console.error('📊 HTTP 상태 코드:', responseObj.status, '(' + responseObj.statusText + ')');
+                        console.error('📋 상태 코드 설명:', getHttpStatusDescription(responseObj.status));
+                    }
+                    
+                    if (err && err.errorData) {
+                        var safeErrorData = JSON.stringify(err.errorData).replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                        safeErrorData = safeErrorData.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                        try {
+                            console.error('📄 응답 데이터 (API 키 마스킹됨):', JSON.parse(safeErrorData));
+                        } catch (e) {
+                            console.error('📄 응답 데이터:', safeErrorData);
+                        }
+                    }
+                    
+                    try {
+                        var errorObj = {
+                            name: err.name || 'Error',
+                            message: sanitizedError ? sanitizedError.message : (err.message || String(err)),
+                            response: sanitizedError ? sanitizedError.response : (err.response || null),
+                            errorData: err.errorData || null
+                        };
+                        console.error('📦 전체 에러 객체 (API 키 마스킹됨):', errorObj);
+                    } catch (e) {
+                        console.error('⚠️ 에러 객체 직렬화 실패');
+                    }
+                    
                     return null;
+                });
+        }
+        
+        // MO 시안을 기준으로 PC 시안 생성 (같은 느낌 유지, 구도만 가로로 확장. 인물/제품 동일)
+        function fetchPcFromMoImage(moImageUrl, seed) {
+            if (!moImageUrl) return Promise.resolve('');
+            var falKey = getFalApiKey();
+            var useDirect = falKey && !API_BASE;
+            console.log('🟡 [진행 단계] FAL API MO→PC 확장 중...');
+            var prompt = 'Same exact image, same scene, same colors, same mood. Only recompose for horizontal layout: place the main content on the FAR RIGHT 40% of the frame. The LEFT 60% must be empty or same background for text. Landscape 16:9. Do not add or remove any object. No new person.';
+            var body = { image_url: moImageUrl, prompt: prompt, strength: 0.42 };
+            if (seed != null) body.seed = seed;
+            var url = useDirect ? 'https://fal.run/fal-ai/flux/dev/image-to-image' : (API_BASE + '/api/fal/image-to-image');
+            var opts = useDirect ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + falKey }, body: JSON.stringify(body) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+            var responseObj = null;
+            return fetch(url, opts)
+                .then(function(r) {
+                    responseObj = r;
+                    if (!r.ok) {
+                        return r.json().then(function(errorData) {
+                            throw { response: r, errorData: errorData };
+                        }).catch(function() {
+                            throw { response: r, errorData: { error: { message: 'Unknown error' } } };
+                        });
+                    }
+                    console.log('✅ [진행 단계] FAL API MO→PC 확장 응답 수신 완료');
+                    return r.json();
+                })
+                .then(function(data) {
+                    console.log('🟡 [진행 단계] MO→PC 확장 응답 데이터 파싱 중...');
+                    var url = (data && data.images && data.images[0] && data.images[0].url) ? data.images[0].url : null;
+                    if (!url) throw new Error('fal.ai MO→PC URL 없음');
+                    console.log('✅ [진행 단계] FAL MO→PC 확장 완료');
+                    return url;
+                })
+                .catch(function(err) {
+                    console.error('❌ FAL API MO→PC 확장 실패');
+                    
+                    // 상세 에러 정보 출력
+                    var sanitizedError = sanitizeErrorForLogging(err);
+                    if (sanitizedError) {
+                        console.error('📝 에러 메시지:', sanitizedError.message);
+                        if (sanitizedError.response) {
+                            console.error('📊 HTTP 상태 코드:', sanitizedError.response.status, '(' + sanitizedError.response.statusText + ')');
+                            console.error('📋 상태 코드 설명:', getHttpStatusDescription(sanitizedError.response.status));
+                            if (sanitizedError.response.data) {
+                                console.error('📄 응답 데이터:', sanitizedError.response.data);
+                            }
+                        }
+                    }
+                    
+                    if (responseObj) {
+                        console.error('📊 HTTP 상태 코드:', responseObj.status, '(' + responseObj.statusText + ')');
+                        console.error('📋 상태 코드 설명:', getHttpStatusDescription(responseObj.status));
+                    }
+                    
+                    if (err && err.errorData) {
+                        var safeErrorData = JSON.stringify(err.errorData).replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                        safeErrorData = safeErrorData.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                        try {
+                            console.error('📄 응답 데이터 (API 키 마스킹됨):', JSON.parse(safeErrorData));
+                        } catch (e) {
+                            console.error('📄 응답 데이터:', safeErrorData);
+                        }
+                    }
+                    
+                    try {
+                        var errorObj = {
+                            name: err.name || 'Error',
+                            message: sanitizedError ? sanitizedError.message : (err.message || String(err)),
+                            response: sanitizedError ? sanitizedError.response : (err.response || null),
+                            errorData: err.errorData || null
+                        };
+                        console.error('📦 전체 에러 객체 (API 키 마스킹됨):', errorObj);
+                    } catch (e) {
+                        console.error('⚠️ 에러 객체 직렬화 실패');
+                    }
+                    
+                    return '';
                 });
         }
         
@@ -610,7 +1316,6 @@
                 // 프록시를 통한 데이터 가져오기 시도
                 for (let i = 0; i < proxyUrls.length; i++) {
                     try {
-                        console.log(`프록시 ${i + 1} 시도 중:`, proxyUrls[i].substring(0, 50) + '...');
                         const response = await fetch(proxyUrls[i], {
                             mode: 'cors',
                             cache: 'no-store'
@@ -618,13 +1323,11 @@
                         
                         if (response.ok) {
                             csvText = await response.text();
-                            console.log(`프록시 ${i + 1} 성공!`);
                             break;
                         } else {
                             throw new Error(`HTTP error! status: ${response.status}`);
                         }
                     } catch (error) {
-                        console.warn(`프록시 ${i + 1} 실패:`, error.message);
                         lastError = error;
                         continue;
                     }
@@ -633,7 +1336,6 @@
                 // 프록시가 모두 실패하면 직접 fetch 시도
                 if (!csvText) {
                     try {
-                        console.log('직접 fetch 시도 중...');
                         const response = await fetch(originalUrl, {
                             mode: 'cors',
                             cache: 'no-store'
@@ -641,12 +1343,10 @@
                         
                         if (response.ok) {
                             csvText = await response.text();
-                            console.log('직접 fetch 성공!');
                         } else {
                             throw new Error(`HTTP error! status: ${response.status}`);
                         }
                     } catch (error) {
-                        console.warn('직접 fetch 실패:', error.message);
                         lastError = error;
                     }
                 }
@@ -655,9 +1355,6 @@
                 if (!csvText) {
                     throw lastError || new Error('모든 데이터 로드 방법이 실패했습니다.');
                 }
-                
-                // 디버깅 로그: 원본 데이터 확인
-                console.log('가져온 원본 데이터:', csvText.substring(0, 100));
                 
                 // 응답 형식 확인 및 예외 처리 강화
                 if (!csvText) {
@@ -701,8 +1398,6 @@
                     
                     rows.push(values);
                 }
-                
-                console.log('전체 행 개수:', rows.length);
                 
                 // 시트 구조: 1행=헤더, A열(0)=시간, F열(5)=검색어, G열(6)=검색량 (고정)
                 const dataStartIndex = 1;
@@ -781,7 +1476,6 @@
                         if (countDiv) countDiv.classList.add('text-indigo-600');
                         selectedKeyword = keyword;
                         updateInsight();
-                        console.log('Selected keyword:', selectedKeyword);
                     });
                     
                     listItem.innerHTML = `
@@ -798,14 +1492,30 @@
                 updateInsight();
                 
             } catch (error) {
-                console.error('트렌드 데이터를 가져오는 중 오류 발생:', error);
-                console.error('에러 상세:', {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name
-                });
-                trendsListContainer.innerHTML = '<div class="p-2 text-sm text-red-500">데이터를 불러올 수 없습니다. 콘솔을 확인해주세요.</div>';
+                // 에러 메시지에서 API 키 마스킹
+                var safeErrorMsg = error.message || String(error);
+                safeErrorMsg = maskApiKeyInUrl(safeErrorMsg);
+                safeErrorMsg = safeErrorMsg.replace(/AIzaSy[A-Za-z0-9_-]+/g, function(match) { return maskApiKey(match); });
+                safeErrorMsg = safeErrorMsg.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]+/gi, function(match) { return maskApiKey(match); });
+                
+                console.error('❌ 트렌드 데이터를 가져오는 중 오류 발생:', safeErrorMsg);
+                
+                // 더 자세한 에러 메시지 표시
+                var errorMsg = '데이터를 불러올 수 없습니다.';
+                if (error.message && error.message.includes('CORS')) {
+                    errorMsg = 'CORS 오류: Google Sheets 접근이 차단되었습니다.';
+                } else if (error.message && error.message.includes('HTTP error')) {
+                    errorMsg = 'HTTP 오류: 서버 응답을 받을 수 없습니다.';
+                } else if (error.message && error.message.includes('비어있습니다')) {
+                    errorMsg = 'CSV 데이터가 비어있습니다. Google Sheets를 확인해주세요.';
+                }
+                
+                trendsListContainer.innerHTML = '<div class="p-2 text-sm text-red-500">' + errorMsg + '</div>';
                 trendsUpdateTime.textContent = '트렌드 (오류 발생)';
+                
+                // currentTrendKeywords 초기화
+                currentTrendKeywords = [];
+                updateInsight();
             }
         }
         
@@ -864,7 +1574,6 @@
                 radio.addEventListener('change', function() {
                     selectedBrand = this.value;
                     updateInsight();
-                    console.log('선택된 브랜드:', selectedBrand);
                 });
             });
         }
@@ -902,8 +1611,6 @@
                             btn.classList.add('text-gray-500');
                         }
                     });
-
-                    console.log('선택된 템플릿:', selectedTemplate, selectedVariant);
                 });
             });
 
@@ -926,7 +1633,6 @@
                             b.classList.remove('text-gray-500');
                         }
                     });
-                    console.log('선택된 레이아웃:', selectedVariant);
                 });
             });
 
@@ -940,9 +1646,127 @@
             }
         }
         
+        // 초기화 함수: 모든 상태를 리셋하고 처음부터 다시 시작할 수 있도록
+        function resetAll() {
+            // 상태 변수 리셋
+            selectedKeyword = null;
+            selectedBrand = 'DV';
+            selectedTemplate = 'A';
+            referenceImageFromFile = null;
+            referenceImageUrlFromInput = null;
+            updateReferenceImage();
+            var urlInp = document.getElementById('referenceImageUrlInput');
+            if (urlInp) urlInp.value = '';
+            selectedAiMode = null;
+            
+            // UI 리셋
+            // 1. 키워드 선택 해제
+            document.querySelectorAll('.trend-item').forEach(function(item) {
+                item.classList.remove('bg-indigo-100', 'border-indigo-400', 'ring-2', 'ring-indigo-300');
+            });
+            
+            // 2. 브랜드 선택 리셋 (DV로)
+            document.querySelectorAll('.brand-btn').forEach(function(btn) {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+            });
+            var dvBtn = document.querySelector('.brand-btn[data-brand="DV"]');
+            if (dvBtn) {
+                dvBtn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+                dvBtn.classList.add('bg-indigo-600', 'text-white');
+            }
+            
+            // 3. 템플릿 선택 리셋 (A로)
+            document.querySelectorAll('.template-card').forEach(function(card) {
+                card.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-2');
+            });
+            var templateA = document.querySelector('.template-card[data-template="A"]');
+            if (templateA) {
+                templateA.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-2');
+            }
+            
+            // 4. 참조 이미지 초기화
+            var referenceInput = document.getElementById('referenceImageInput');
+            if (referenceInput) referenceInput.value = '';
+            var referenceLabel = document.getElementById('referenceImageLabel');
+            if (referenceLabel) referenceLabel.textContent = '제품 이미지를 올리면 키워드와 기획의도에 맞는 배경에 합성합니다';
+            var referenceZone = document.getElementById('referenceImageZone');
+            if (referenceZone) {
+                referenceZone.classList.remove('border-indigo-300', 'bg-indigo-50/30');
+            }
+            
+            // 5. AI 생성 모드 리셋
+            document.querySelectorAll('input[name="aiGenerateMode"]').forEach(function(radio) {
+                radio.checked = false;
+            });
+            
+            // 6. 기획 의도 텍스트 초기화
+            var campaignIntent = document.getElementById('campaignIntent');
+            if (campaignIntent) campaignIntent.value = '';
+            
+            // 7. 생성 상태 메시지 초기화
+            setGenerateStatus('');
+            
+            // 8. 생성된 이미지 숨기기 및 리셋
+            var moImg = document.getElementById('resultMoImage');
+            var pcImg = document.getElementById('resultPcImage');
+            if (moImg) {
+                moImg.src = '';
+                moImg.classList.add('hidden');
+            }
+            if (pcImg) {
+                pcImg.src = '';
+            }
+            
+            // 9. 플레이스홀더 다시 표시
+            var moPh = document.getElementById('resultMoPlaceholder');
+            var pcPh = document.getElementById('resultPcPlaceholder');
+            if (moPh) {
+                moPh.textContent = '키워드 선택 후 AI 시안 생성하기를 누르세요.';
+                moPh.classList.remove('hidden');
+            }
+            if (pcPh) {
+                pcPh.textContent = '키워드 선택 후 AI 시안 생성하기를 누르세요.';
+                pcPh.classList.remove('hidden');
+            }
+            
+            // 10. 텍스트 오버레이 숨기기
+            var moOverlay = document.getElementById('resultMoOverlay');
+            var pcOverlay = document.getElementById('resultPcOverlay');
+            if (moOverlay) moOverlay.classList.add('hidden');
+            if (pcOverlay) pcOverlay.classList.add('hidden');
+            
+            // 11. 브랜드/키워드 텍스트 초기화
+            var moBrand = document.getElementById('resultMoBrand');
+            var moKeyword = document.getElementById('resultMoKeyword');
+            var pcBrand = document.getElementById('resultPcBrand');
+            var pcKeyword = document.getElementById('resultPcKeyword');
+            if (moBrand) moBrand.textContent = '';
+            if (moKeyword) moKeyword.textContent = '';
+            if (pcBrand) pcBrand.textContent = '';
+            if (pcKeyword) pcKeyword.textContent = '';
+            
+            // 12. 결과 섹션으로 스크롤 (선택사항)
+            var resultSection = document.getElementById('result');
+            if (resultSection) {
+                resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            alert('모든 설정이 초기화되었습니다. 검색어 선택부터 다시 시작하세요.');
+        }
+        
         // AI 시안 생성 버튼 클릭 이벤트 (Gemini → 카피 반영 → 이미지 URL → textStyle 배치)
         function setupGenerateButton() {
             var generateButton = document.getElementById('generateButton');
+            var resetButton = document.getElementById('resetButton');
+            
+            // 초기화 버튼 이벤트
+            if (resetButton) {
+                resetButton.addEventListener('click', function() {
+                    resetAll();
+                });
+            }
+            
             generateButton.addEventListener('click', async function() {
                 var campaignIntent = document.getElementById('campaignIntent').value;
                 if (!selectedKeyword || !selectedTemplate) {
@@ -950,25 +1774,35 @@
                     return;
                 }
                 var modeRadios = document.querySelectorAll('input[name="aiGenerateMode"]');
-                var aiMode = 'mood';
+                var aiMode = null;
                 modeRadios.forEach(function(r) { if (r.checked) aiMode = r.value; });
                 selectedAiMode = aiMode;
+                
+                // API 선택 확인
+                var apiRadios = document.querySelectorAll('input[name="imageApi"]');
+                var imageApi = 'fal';
+                apiRadios.forEach(function(r) { if (r.checked) imageApi = r.value; });
+                selectedImageApi = imageApi;
+                console.log('🔵 [API 선택]', imageApi === 'replicate' ? 'Replicate API 사용' : 'FAL API 사용');
                 
                 var btn = this;
                 var origText = btn.textContent;
                 btn.disabled = true;
-                setGenerateStatus('Gemini가 브랜드를 분석하여 프롬프트를 작성 중입니다...');
-                
-                var geminiResult = { imagePrompt: '', brandCopy: '', keywordCopy: '' };
-                try {
-                    geminiResult = await callGeminiForPromptAndCopy(selectedBrand, selectedKeyword, campaignIntent, referenceImageComposition, aiMode);
-                } catch (e) {
-                    console.warn(e);
-                    geminiResult.imagePrompt = buildImagePrompt(selectedBrand, selectedKeyword, campaignIntent, referenceImageComposition, aiMode);
-                    geminiResult.brandCopy = (BRAND_KNOWLEDGE[selectedBrand] && BRAND_KNOWLEDGE[selectedBrand].fullName) ? BRAND_KNOWLEDGE[selectedBrand].fullName + ' 26SS 컬렉션' : selectedBrand + ' 26SS 컬렉션';
-                    geminiResult.keywordCopy = selectedKeyword;
+                // URL 입력란 값 생성 직전에 한 번 더 반영 (참조 이미지 확실히 적용)
+                var urlInputSync = document.getElementById('referenceImageUrlInput');
+                if (urlInputSync) {
+                    var v = (urlInputSync.value || '').trim();
+                    if (v) {
+                        if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+                        if (/^https?:\/\/.+/i.test(v)) {
+                            referenceImageUrlFromInput = v;
+                            updateReferenceImage();
+                        }
+                    }
                 }
-                
+                console.log('🟡 [참조 이미지] 사용 여부:', hasReferenceImage, '| URL:', referenceImageUrl ? (referenceImageUrl.length > 60 ? referenceImageUrl.substring(0, 60) + '...' : referenceImageUrl) : '(없음)');
+                setGenerateStatus('프롬프트 구성 중...');
+                var geminiResult = await getPromptResult(selectedBrand, selectedKeyword, campaignIntent, aiMode, hasReferenceImage);
                 var brandCopy = (geminiResult.brandCopy || '').trim() || selectedBrand + ' 26SS 컬렉션';
                 var keywordCopy = (geminiResult.keywordCopy || '').trim() || selectedKeyword;
                 document.getElementById('resultMoBrand').textContent = brandCopy;
@@ -979,19 +1813,63 @@
                 var editKeywordEl = document.getElementById('editKeyword');
                 if (editBrandEl) editBrandEl.value = brandCopy;
                 if (editKeywordEl) editKeywordEl.value = keywordCopy;
-                
                 setGenerateStatus('AI 디자이너가 고화질 시안을 그리고 있습니다...');
                 overlayInited['mo-brand'] = overlayInited['mo-keyword'] = overlayInited['pc-brand'] = overlayInited['pc-keyword'] = false;
-                console.log('imagePrompt (키워드·상세지침 반영 확인):', geminiResult.imagePrompt);
+                var moPhReset = document.getElementById('resultMoPlaceholder');
+                if (moPhReset) moPhReset.textContent = '키워드 선택 후 AI 시안 생성하기를 누르세요.';
                 var loadingEl = document.getElementById('imageLoadingOverlay');
                 var loadingMsgEl = document.getElementById('imageLoadingOverlayMessage');
-                if (loadingMsgEl) loadingMsgEl.textContent = 'AI 디자이너가 고화질 시안을 그리고 있습니다...';
+                if (loadingMsgEl) loadingMsgEl.textContent = 'MO·PC 시안 동시 생성 중...';
                 if (loadingEl) { loadingEl.classList.add('visible'); loadingEl.setAttribute('aria-hidden', 'false'); }
-                var imageSrc;
+                var pcImageSrc, moImageSrc;
                 try {
-                    var pcImageSrc = await fetchNanoBananaImage(geminiResult.imagePrompt, aiMode, campaignIntent, null, false);
-                    var moImageSrc = await fetchNanoBananaImage(geminiResult.imagePrompt, aiMode, campaignIntent, null, true);
-                    var imageSrc = pcImageSrc;
+                    console.log('🟡 [진행 단계] 이미지 생성 시작 (MO·PC 동시 생성)');
+                    var baseSeed = Math.floor(Math.random() * 1000000);
+                    lastImageSeed = baseSeed;
+                    console.log('🟡 [진행 단계] 시드 생성 완료:', baseSeed);
+                    
+                    // 선택된 API에 따라 다른 함수 호출
+                    // 주의: Replicate API는 CORS 문제로 브라우저에서 직접 호출 불가
+                    // 서버 사이드 프록시가 필요하므로 현재는 FAL API만 사용
+                    var promMo, promPc;
+                    if (selectedImageApi === 'replicate') {
+                        console.log('🟡 [진행 단계] Replicate API 호출 중 (한도 방지를 위해 MO → PC 순차 생성)...');
+                        moImageSrc = await fetchReplicateImage(selectedBrand, geminiResult.imagePromptMo || geminiResult.imagePrompt, baseSeed, true, referenceImageUrl);
+                        pcImageSrc = await fetchReplicateImage(selectedBrand, geminiResult.imagePrompt, baseSeed, false, referenceImageUrl);
+                        if (!pcImageSrc && moImageSrc) pcImageSrc = moImageSrc;
+                        console.log('🟡 [진행 단계] Replicate API 호출 완료.');
+                    } else {
+                        promMo = fetchNanoBananaImage(selectedBrand, geminiResult.imagePromptMo || geminiResult.imagePrompt, baseSeed, true, referenceImageUrl);
+                        promPc = fetchNanoBananaImage(selectedBrand, geminiResult.imagePrompt, baseSeed, false, referenceImageUrl);
+                        console.log('🟡 [진행 단계] FAL API 호출 완료, 응답 대기 중...');
+                        var results = await Promise.all([promMo, promPc]);
+                        moImageSrc = results[0] || '';
+                        pcImageSrc = results[1] || '';
+                        if (!pcImageSrc && moImageSrc) pcImageSrc = moImageSrc;
+                    }
+                    console.log('✅ [진행 단계] 이미지 생성 완료 (MO:', !!moImageSrc, 'PC:', !!pcImageSrc, ')');
+                } catch (error) {
+                    console.error('❌ 이미지 생성 중 오류 발생');
+                    var sanitizedError = sanitizeErrorForLogging(error);
+                    if (sanitizedError) {
+                        console.error('📝 에러 메시지:', sanitizedError.message);
+                        if (sanitizedError.stack) {
+                            console.error('🔍 에러 스택:', sanitizedError.stack);
+                        }
+                    }
+                    setGenerateStatus('');
+                    btn.disabled = false;
+                    btn.textContent = origText;
+                    var errMsg = (sanitizedError && sanitizedError.message) ? sanitizedError.message : (error && error.message) ? error.message : '알 수 없는 오류';
+                    var status429 = (error && error.response && error.response.status === 429);
+                    if (status429) {
+                        alert('요청 한도를 초과했습니다 (429 Too Many Requests).\n\nReplicate에서 한도가 걸린 상태입니다. 보통 약 30초 후에 풀립니다.\n• 30초~1분 기다린 뒤 다시 시도해 주세요.\n• 사용량/결제 확인: https://replicate.com/account/billing');
+                    } else if (selectedImageApi === 'replicate') {
+                        alert('키워드 반영 이미지 생성에 실패했습니다.\n\nReplicate API 오류일 수 있습니다. 확인할 것:\n• server.js 터미널에 에러 로그가 있는지\n• Replicate API 키가 유효한지\n• Replicate 서비스 상태\n\n콘솔(F12)에서 상세 오류를 확인할 수 있습니다.');
+                    } else {
+                        alert('키워드 반영 이미지 생성에 실패했습니다.\n\nFAL API 키를 확인하거나, 잠시 후 다시 시도해 주세요.\n\n오류: ' + errMsg);
+                    }
+                    return;
                 } finally {
                     if (loadingEl) { loadingEl.classList.remove('visible'); loadingEl.setAttribute('aria-hidden', 'true'); }
                 }
@@ -1023,14 +1901,77 @@
                     pcPh.classList.remove('hidden');
                     pcOverlay.classList.add('hidden');
                 }
-                moImg.onload = showMo;
-                moImg.onerror = hideMo;
-                pcImg.onload = showPc;
-                pcImg.onerror = hidePc;
-                moImg.crossOrigin = pcImg.crossOrigin = 'anonymous';
-                moImg.src = moImageSrc;
-                pcImg.src = pcImageSrc;
+                pcImg.crossOrigin = 'anonymous';
+                // 모바일 이미지 태그 존재 및 상태 확인 (디버깅용 로그 제거)
+                
+                // 모바일 이미지 생성 즉시 표시: src 할당 후 UI 즉시 전환(로드는 onload에서 완료)
+                function forceShowMo() {
+                    if (!moImageSrc) { console.error('MO 이미지 소스가 없습니다!'); return; }
+                    var el = document.getElementById('resultMoImage');
+                    if (!el || !el.parentNode) { console.error('resultMoImage 요소가 DOM에 없습니다.'); return; }
+                    lastGeneratedMoImageUrl = moImageSrc;
+                    el.removeAttribute('crossorigin');
+                    el.crossOrigin = '';
+                    el.src = moImageSrc;
+                    el.setAttribute('style', 'display: block !important; visibility: visible !important;');
+                    el.style.setProperty('display', 'block', 'important');
+                    el.style.setProperty('visibility', 'visible', 'important');
+                    el.classList.remove('hidden');
+                    if (moPh) moPh.classList.add('hidden');
+                    if (moOverlay) moOverlay.classList.remove('hidden');
+                    requestAnimationFrame(function() {
+                        el.setAttribute('style', 'display: block !important; visibility: visible !important;');
+                        el.classList.remove('hidden');
+                    });
+                    setTimeout(function() { initOverlayPositions(); }, 50);
+                }
+                
+                moImg.onload = function() { 
+                    lastGeneratedMoImageUrl = moImageSrc;
+                    moImg.classList.remove('hidden');
+                    showMo(); 
+                };
+                moImg.onerror = function() { 
+                    // MO 영역은 숨기지 않고, placeholder만 보이도록 (모바일 시안 칸은 항상 유지)
+                    moImg.classList.add('hidden');
+                    if (moPh) moPh.classList.remove('hidden');
+                    if (moPh) moPh.textContent = 'MO 이미지를 불러올 수 없습니다.';
+                    if (moOverlay) moOverlay.classList.add('hidden');
+                };
+                pcImg.onload = function() { 
+                    showPc(); 
+                };
+                pcImg.onerror = function() { 
+                    hidePc(); 
+                };
+                
+                // PC 이미지 즉시 할당 및 강제 노출
+                if (pcImageSrc) {
+                    pcImg.src = pcImageSrc;
+                    pcImg.style.setProperty('display', 'block', 'important');
+                    pcImg.classList.remove('hidden');
+                    if (pcPh) pcPh.classList.add('hidden');
+                    if (pcOverlay) pcOverlay.classList.remove('hidden');
+                }
+                if (pcImg.complete && pcImageSrc) {
+                    setTimeout(function() { if (pcImg.src === pcImageSrc) showPc(); }, 100);
+                }
+                
+                // MO: moImageSrc 생성되자마자 resultMoImage.src 할당, display/hidden !important 강제
+                if (moImageSrc) {
+                    if (moImg) {
+                        moImg.src = moImageSrc;
+                        moImg.style.setProperty('display', 'block', 'important');
+                        moImg.style.setProperty('visibility', 'visible', 'important');
+                        moImg.classList.remove('hidden');
+                        if (moPh) moPh.classList.add('hidden');
+                        if (moOverlay) moOverlay.classList.remove('hidden');
+                    }
+                    forceShowMo();
+                }
+                
                 lastGeneratedImageUrl = pcImageSrc;
+                lastGeneratedPcImageUrl = pcImageSrc;
                 lastImagePrompt = geminiResult.imagePrompt;
                 lastDetailInstructions = campaignIntent || '';
                 lastAiMode = aiMode;
@@ -1149,15 +2090,18 @@
         function getTextSpan(box) { return box ? box.querySelector('span:not(.resize-handle)') : null; }
         function getCaptureFor(target) { return target.indexOf('mo') === 0 ? document.getElementById('resultMoCapture') : document.getElementById('resultPcCapture'); }
         
-        // 피그마용 SVG: 고정 해상도 viewBox, 비례 좌표 계산, text-anchor 정렬 보정
+        // 피그마 SVG 출력 고정: PC 3840x1760, MO 2304x3500 하드코딩. 텍스트 좌표 PC=좌측, MO=상단 고정(제품과 겹치지 않음)
+        var FIGMA_MO_WIDTH = 2304, FIGMA_MO_HEIGHT = 3500, FIGMA_PC_WIDTH = 3840, FIGMA_PC_HEIGHT = 1760;
+        var SAFE_MO_Y_MAX_RATIO = 0.35;
+        var SAFE_PC_X_MAX_RATIO = 0.60;
         async function buildSvgForFigma(variant) {
             var isMo = variant === 'mo';
             var captureId = isMo ? 'resultMoCapture' : 'resultPcCapture';
             var imgId = isMo ? 'resultMoImage' : 'resultPcImage';
             var targets = isMo ? ['mo-brand', 'mo-keyword'] : ['pc-brand', 'pc-keyword'];
-            // 고정 해상도 (Hard-coded ViewBox) - 소수점 없이 정확히
-            var vbW = isMo ? 2304 : 3840;
-            var vbH = isMo ? 3500 : 1760;
+            var vbW = isMo ? FIGMA_MO_WIDTH : FIGMA_PC_WIDTH;
+            var vbH = isMo ? FIGMA_MO_HEIGHT : FIGMA_PC_HEIGHT;
+            console.log('피그마 SVG 생성:', { variant: variant, viewBox: '0 0 ' + vbW + ' ' + vbH });
             var capture = document.getElementById(captureId);
             var imgEl = document.getElementById(imgId);
             if (!capture || !imgEl || !imgEl.src || imgEl.classList.contains('hidden')) {
@@ -1205,9 +2149,15 @@
                 var fontFamily = computedStyle.fontFamily || 'sans-serif';
                 var d = defaultsMap[target] || {};
                 var textAnchor = d.centerHoriz ? 'middle' : (d.leftAlign ? 'start' : 'start');
-                if (d.centerHoriz) {
-                    var boxCenterX = relativeX + (boxRect.width / 2);
-                    x = Math.round((boxCenterX / canvasW) * vbW);
+                if (isMo) {
+                    x = Math.round(vbW / 2);
+                    var moYRatio = Math.min(d.yRatio !== undefined ? d.yRatio : 0.10, SAFE_MO_Y_MAX_RATIO);
+                    y = Math.round(moYRatio * vbH);
+                } else {
+                    var pcXRatio = Math.min(d.leftMarginRatio !== undefined ? d.leftMarginRatio : 0.10, SAFE_PC_X_MAX_RATIO);
+                    var forcedY = (d.yRatio !== undefined ? d.yRatio : 0.40) * vbH;
+                    x = Math.round(pcXRatio * vbW);
+                    y = Math.round(forcedY);
                 }
                 var textBoxW = boxRect.width;
                 var textBoxH = textRect.height;
@@ -1221,7 +2171,10 @@
                 textNodes.push('<text x="' + x + '" y="' + y + '" font-size="' + fs + '" fill="' + fillColor + '" font-weight="' + escapeXml(fontWeight) + '" font-family="' + escapeXml(fontFamily) + '" text-anchor="' + textAnchor + '">' + escapeXml(text) + '</text>');
             }
             var defsSection = defsNodes.length > 0 ? '<defs>' + defsNodes.join('') + '</defs>' : '';
-            var svg = '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ' + vbW + ' ' + vbH + '" width="' + vbW + '" height="' + vbH + '">\n  ' + defsSection + '\n  <image x="0" y="0" width="' + vbW + '" height="' + vbH + '" href="' + base64 + '" preserveAspectRatio="xMidYMid slice"/>\n  ' + gradientNodes.join('\n  ') + '\n  ' + textNodes.join('\n  ') + '\n</svg>';
+            // 피그마 규격: viewBox PC 3840x1760, MO 2304x3500. 배경 이미지 꽉 차게 xMidYMid slice
+            var viewBoxStr = '0 0 ' + vbW + ' ' + vbH;
+            var svg = '<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="' + viewBoxStr + '" width="' + vbW + '" height="' + vbH + '">\n  ' + defsSection + '\n  <image x="0" y="0" width="' + vbW + '" height="' + vbH + '" href="' + base64 + '" preserveAspectRatio="xMidYMid slice"/>\n  ' + gradientNodes.join('\n  ') + '\n  ' + textNodes.join('\n  ') + '\n</svg>';
+            console.log('피그마 SVG 생성 완료:', { variant: variant, viewBox: viewBoxStr, vbW: vbW, vbH: vbH, textNodesCount: textNodes.length });
             return svg;
         }
         
@@ -1242,15 +2195,14 @@
             if (el) el.value = s.fontSize;
         }
         
-        // 디폴트 배치: MO = 상단 클린 영역(텍스트·피사체 겹침 방지), PC = 왼쪽 클린 영역(Left clean background)
+        // 텍스트 위치 고정: MO = 상단(중앙 정렬), PC = 좌측 여백 10% (피그마 SVG와 동일)
         function getTextStyleDefaults(brandKey) {
-            var brand = BRAND_KNOWLEDGE[brandKey];
             var isDV = brandKey === 'DV';
             return {
-                'mo-brand':  { centerHoriz: true, yRatio: 0.06, fs: 13, fontWeight: isDV ? '600' : '600' },
-                'mo-keyword': { centerHoriz: true, yRatio: 0.16, fs: 26, fontWeight: isDV ? '700' : '700' },
-                'pc-brand':  { leftAlign: true, leftMarginRatio: 0.07, yRatio: 0.36, fs: 15, fontWeight: isDV ? '600' : '600' },
-                'pc-keyword': { leftAlign: true, leftMarginRatio: 0.07, yRatio: 0.46, fs: 32, fontWeight: isDV ? '700' : '700' }
+                'mo-brand':  { centerHoriz: true, yRatio: 0.10, fs: 13, fontWeight: isDV ? '600' : '600' },
+                'mo-keyword': { centerHoriz: true, yRatio: 0.18, fs: 26, fontWeight: isDV ? '700' : '700' },
+                'pc-brand':  { leftAlign: true, leftMarginRatio: 0.10, yRatio: 0.36, fs: 15, fontWeight: isDV ? '600' : '600' },
+                'pc-keyword': { leftAlign: true, leftMarginRatio: 0.10, yRatio: 0.46, fs: 32, fontWeight: isDV ? '700' : '700' }
             };
         }
         
@@ -1380,34 +2332,181 @@
             setupBrandSelection();
             setupTemplateSelection();
             setupGenerateButton();
+            
+            // 서버 상태 확인
+            function checkServerStatus() {
+                var statusEl = document.getElementById('serverStatus');
+                var statusTextEl = document.getElementById('serverStatusText');
+                if (!statusEl || !statusTextEl) return;
+                
+                fetch(API_BASE + '/health')
+                    .then(function(r) {
+                        if (r.ok) {
+                            statusEl.classList.remove('hidden');
+                            statusTextEl.textContent = '✅ 서버 연결됨 (Gemini·FAL·Replicate 사용 가능)';
+                            statusTextEl.className = 'text-green-600';
+                        } else {
+                            throw new Error('서버 응답 오류');
+                        }
+                    })
+                    .catch(function() {
+                        statusEl.classList.remove('hidden');
+                        statusTextEl.textContent = '⚠️ 서버 미연결 (FAL API로 자동 폴백)';
+                        statusTextEl.className = 'text-orange-600';
+                    });
+            }
+            
+            // Replicate API 선택 시 서버 상태 확인
+            document.querySelectorAll('input[name="imageApi"]').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'replicate') {
+                        checkServerStatus();
+                    } else {
+                        var statusEl = document.getElementById('serverStatus');
+                        if (statusEl) statusEl.classList.add('hidden');
+                    }
+                });
+            });
             (function setupReferenceImageAndAiMode() {
+                // 이미지 리사이징 및 압축 함수 (토큰 소모 최적화)
+                function compressImage(file, maxWidth, maxHeight, quality) {
+                    return new Promise(function(resolve, reject) {
+                        maxWidth = maxWidth || 1024; // 최대 너비 1024px
+                        maxHeight = maxHeight || 1024; // 최대 높이 1024px
+                        quality = quality || 0.85; // JPEG 품질 85%
+                        
+                        var reader = new FileReader();
+                        reader.onload = function(e) {
+                            var img = new Image();
+                            img.onload = function() {
+                                try {
+                                    var canvas = document.createElement('canvas');
+                                    var ctx = canvas.getContext('2d');
+                                    
+                                    // 비율 유지하며 리사이징
+                                    var width = img.width;
+                                    var height = img.height;
+                                    if (width > maxWidth || height > maxHeight) {
+                                        var ratio = Math.min(maxWidth / width, maxHeight / height);
+                                        width = Math.round(width * ratio);
+                                        height = Math.round(height * ratio);
+                                    }
+                                    
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                    
+                                    // 이미지 그리기
+                                    ctx.drawImage(img, 0, 0, width, height);
+                                    
+                                    // JPEG로 압축 (PNG보다 작음)
+                                    var compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                                    
+                                    // 파일 크기 확인
+                                    var originalSize = file.size;
+                                    var compressedSize = Math.round((compressedDataUrl.length - 'data:image/jpeg;base64,'.length) * 0.75); // base64는 약 33% 더 크므로
+                                    
+                                    console.log('📊 이미지 압축 결과:', {
+                                        원본크기: (originalSize / 1024).toFixed(2) + ' KB',
+                                        압축크기: (compressedSize / 1024).toFixed(2) + ' KB',
+                                        압축률: ((1 - compressedSize / originalSize) * 100).toFixed(1) + '%',
+                                        해상도: width + 'x' + height
+                                    });
+                                    
+                                    resolve(compressedDataUrl);
+                                } catch (err) {
+                                    reject(err);
+                                }
+                            };
+                            img.onerror = function() { reject(new Error('이미지 로드 실패')); };
+                            img.src = e.target.result;
+                        };
+                        reader.onerror = function() { reject(new Error('파일 읽기 실패')); };
+                        reader.readAsDataURL(file);
+                    });
+                }
+                
                 var zone = document.getElementById('referenceImageZone');
                 var input = document.getElementById('referenceImageInput');
                 var label = document.getElementById('referenceImageLabel');
                 var hint = document.getElementById('aiModeHint');
-                var radios = document.querySelectorAll('input[name="aiGenerateMode"]');
-                function setModeEnabled(enabled) {
-                    hasReferenceImage = !!enabled;
-                    radios.forEach(function(r) { r.disabled = !enabled; });
-                    if (hint) hint.textContent = enabled ? '모드를 선택한 뒤 AI 시안 생성하기를 누르세요.' : '참조 이미지를 첨부하면 모드를 선택할 수 있습니다.';
-                }
                 if (zone && input) {
                     zone.addEventListener('click', function() { input.click(); });
                     input.addEventListener('change', function() {
                         if (this.files && this.files.length > 0) {
-                            referenceImageComposition = 'User-uploaded reference image; preserve its composition and subject.';
-                            if (label) { label.textContent = '첨부됨: ' + this.files[0].name; }
-                            zone.classList.add('border-indigo-300', 'bg-indigo-50/30');
-                            setModeEnabled(true);
-                            var first = document.querySelector('input[name="aiGenerateMode"][value="similar"]');
-                            if (first) { first.checked = true; selectedAiMode = 'similar'; }
+                            var file = this.files[0];
+                            
+                            // 파일 크기 체크 (10MB 이상이면 경고)
+                            if (file.size > 10 * 1024 * 1024) {
+                                alert('이미지 파일이 너무 큽니다 (10MB 이상). 자동으로 압축됩니다.');
+                            }
+                            
+                            // 파일 타입 체크
+                            if (!file.type.match(/^image\/(jpeg|jpg|png|webp)/i)) {
+                                alert('지원하는 이미지 형식: JPEG, PNG, WebP');
+                                return;
+                            }
+                            
+                            // 로딩 표시
+                            if (label) { label.textContent = '이미지 압축 중...'; }
+                            
+                            // 이미지 압축 후 저장
+                            compressImage(file, 1024, 1024, 0.85)
+                                .then(function(compressedDataUrl) {
+                                    referenceImageFromFile = compressedDataUrl;
+                                    updateReferenceImage();
+                                    referenceImageComposition = 'Reference image uploaded; use as main subject source.';
+                                    if (label) { 
+                                        var sizeKB = (file.size / 1024).toFixed(1);
+                                        label.textContent = '업로드됨: ' + file.name + ' (' + sizeKB + ' KB → 압축됨)'; 
+                                    }
+                                    zone.classList.add('border-indigo-300', 'bg-indigo-50/30');
+                                    console.log('✅ 이미지 압축 완료, 토큰 소모 최적화됨');
+                                })
+                                .catch(function(err) {
+                                    console.error('❌ 이미지 압축 실패:', err);
+                                    alert('이미지 처리 실패: ' + (err.message || '알 수 없는 오류'));
+                                    referenceImageFromFile = null;
+                                    updateReferenceImage();
+                                    if (label) { label.textContent = '업로드 시 제품을 중심으로 배경을 연출합니다'; }
+                                    zone.classList.remove('border-indigo-300', 'bg-indigo-50/30');
+                                });
+                        } else {
+                            referenceImageFromFile = null;
+                            updateReferenceImage();
+                            referenceImageComposition = '';
+                            if (label) { label.textContent = '업로드 시 제품을 중심으로 배경을 연출합니다'; }
+                            zone.classList.remove('border-indigo-300', 'bg-indigo-50/30');
                         }
                     });
+                }
+                // 제품 이미지 URL 입력란 — FAL·Replicate 모두 image_url로 URL 지원
+                var referenceImageUrlInputEl = document.getElementById('referenceImageUrlInput');
+                function applyReferenceUrlFromInput(val) {
+                    var v = (val || '').trim();
+                    if (!v) {
+                        referenceImageUrlFromInput = null;
+                    } else {
+                        if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+                        if (/^https?:\/\/.+/i.test(v)) referenceImageUrlFromInput = v;
+                        else referenceImageUrlFromInput = null;
+                    }
+                    updateReferenceImage();
+                }
+                if (referenceImageUrlInputEl) {
+                    referenceImageUrlInputEl.addEventListener('input', function() { applyReferenceUrlFromInput(this.value); });
+                    referenceImageUrlInputEl.addEventListener('blur', function() { applyReferenceUrlFromInput(this.value); });
                 }
                 document.querySelectorAll('input[name="aiGenerateMode"]').forEach(function(r) {
                     r.addEventListener('change', function() { selectedAiMode = this.value; });
                 });
-                setModeEnabled(false);
+                
+                // API 선택 이벤트 리스너
+                document.querySelectorAll('input[name="imageApi"]').forEach(function(r) {
+                    r.addEventListener('change', function() { 
+                        selectedImageApi = this.value;
+                        console.log('🔵 [API 변경]', selectedImageApi === 'replicate' ? 'Replicate API로 변경됨' : 'FAL API로 변경됨');
+                    });
+                });
             })();
             setupOverlayInteract();
             document.getElementById('downloadMoBtn')?.addEventListener('click', downloadMoImage);
@@ -1455,16 +2554,64 @@
                 var pcImg = document.getElementById('resultPcImage');
                 var loadingEl = document.getElementById('imageLoadingOverlay');
                 var loadingMsg = document.getElementById('imageLoadingOverlayMessage');
-                if (loadingMsg) loadingMsg.textContent = '디벨롭 중...';
+                if (loadingMsg) loadingMsg.textContent = 'PC 시안 디벨롭 중...';
                 setGenerateStatus('디벨롭 중...');
                 setDevelopRegenDisabled(true);
                 if (loadingEl) { loadingEl.classList.add('visible'); loadingEl.setAttribute('aria-hidden', 'false'); }
                 try {
-                    var url = await fetchFluxImageToImage(lastGeneratedImageUrl, feedback, 0.45);
-                    if (url) {
-                        lastGeneratedImageUrl = url;
+                    if (!lastGeneratedMoImageUrl || !lastGeneratedPcImageUrl) { alert('먼저 AI 시안 생성하기로 이미지를 만든 뒤 디벨롭해주세요.'); return; }
+                    var pcUrl = await fetchFluxImageToImage(lastGeneratedPcImageUrl, feedback, 0.45);
+                    if (loadingMsg) loadingMsg.textContent = '모바일 시안 디벨롭 중...';
+                    var moUrl = await fetchFluxImageToImage(lastGeneratedMoImageUrl, feedback, 0.45);
+                    if (pcUrl && moUrl) {
+                        lastGeneratedPcImageUrl = pcUrl;
+                        lastGeneratedMoImageUrl = moUrl;
+                        lastGeneratedImageUrl = pcUrl;
                         moImg.crossOrigin = pcImg.crossOrigin = 'anonymous';
-                        moImg.src = pcImg.src = url;
+                        
+                        // MO 이미지 강제 표시 로직 (디벨롭)
+                        function forceShowMoDevelop() {
+                            if (!moUrl) return;
+                            moImg.src = '';
+                            setTimeout(function() {
+                                moImg.src = moUrl;
+                                setTimeout(function() {
+                                    if (moImg.complete || moImg.naturalWidth > 0) {
+                                        moImg.classList.remove('hidden');
+                                        var moPh = document.getElementById('resultMoPlaceholder');
+                                        var moOverlay = document.getElementById('resultMoOverlay');
+                                        if (moPh) moPh.classList.add('hidden');
+                                        if (moOverlay) moOverlay.classList.remove('hidden');
+                                        setTimeout(function() { initOverlayPositions(); }, 50);
+                                    }
+                                }, 100);
+                            }, 10);
+                        }
+                        
+                        moImg.onload = function() {
+                            moImg.classList.remove('hidden');
+                            var moPh = document.getElementById('resultMoPlaceholder');
+                            var moOverlay = document.getElementById('resultMoOverlay');
+                            if (moPh) moPh.classList.add('hidden');
+                            if (moOverlay) moOverlay.classList.remove('hidden');
+                            setTimeout(function() { initOverlayPositions(); }, 50);
+                        };
+                        moImg.onerror = function() {
+                            // 에러 발생 시 조용히 처리 (사용자에게는 UI로 표시됨)
+                        };
+                        
+                        pcImg.onload = function() {
+                            pcImg.classList.remove('hidden');
+                            var pcPh = document.getElementById('resultPcPlaceholder');
+                            var pcOverlay = document.getElementById('resultPcOverlay');
+                            if (pcPh) pcPh.classList.add('hidden');
+                            if (pcOverlay) pcOverlay.classList.remove('hidden');
+                            setTimeout(function() { initOverlayPositions(); }, 50);
+                        };
+                        
+                        // 이미지 할당
+                        pcImg.src = pcUrl;
+                        forceShowMoDevelop();
                     } else { alert('이미지 디벨롭에 실패했습니다.'); }
                 } finally {
                     setGenerateStatus('');
@@ -1476,23 +2623,118 @@
                 if (!selectedKeyword) { alert('먼저 키워드를 선택하고 시안을 생성해주세요.'); return; }
                 if (!lastImagePrompt) { alert('먼저 AI 시안 생성하기로 이미지를 만든 뒤 재생성해주세요.'); return; }
                 var feedback = (document.getElementById('resultFeedback')?.value || '').trim();
-                var prompt = lastImagePrompt + (feedback ? '. ' + feedback : '');
                 var moImg = document.getElementById('resultMoImage');
                 var pcImg = document.getElementById('resultPcImage');
                 var loadingEl = document.getElementById('imageLoadingOverlay');
                 var loadingMsg = document.getElementById('imageLoadingOverlayMessage');
-                if (loadingMsg) loadingMsg.textContent = '새로 생성 중...';
+                if (loadingMsg) loadingMsg.textContent = 'PC 시안 재생성 중...';
                 setGenerateStatus('새로 생성 중...');
                 setDevelopRegenDisabled(true);
                 if (loadingEl) { loadingEl.classList.add('visible'); loadingEl.setAttribute('aria-hidden', 'false'); }
                 try {
-                    var newSeed = Math.floor(Math.random() * 2147483647);
-                    var pcImageSrc = await fetchNanoBananaImage(prompt, lastAiMode, feedback || lastDetailInstructions, newSeed, false);
-                    var moImageSrc = await fetchNanoBananaImage(prompt, lastAiMode, feedback || lastDetailInstructions, newSeed + 1, true);
+                    var baseSeed = Math.floor(Math.random() * 1000000);
+                    lastImageSeed = baseSeed;
+                    var regenIntent = (feedback || lastDetailInstructions || '').trim();
+                    if (loadingMsg) loadingMsg.textContent = 'MO·PC 시안 동시 재생성 중...';
+                    var fusedMo = fusePrompt(selectedBrand, selectedKeyword, regenIntent, '', true, selectedAiMode || null);
+                    var fusedPc = fusePrompt(selectedBrand, selectedKeyword, regenIntent, '', false, selectedAiMode || null);
+                    var promMoRegen = fetchNanoBananaImage(selectedBrand, fusedMo, baseSeed, true, referenceImageUrl);
+                    var promPcRegen = fetchNanoBananaImage(selectedBrand, fusedPc, baseSeed, false, referenceImageUrl);
+                    var resultsRegen = await Promise.all([promMoRegen, promPcRegen]);
+                    var moImageSrc = resultsRegen[0] || '';
+                    var pcImageSrc = resultsRegen[1] || '';
+                    if (!pcImageSrc && moImageSrc) pcImageSrc = moImageSrc;
                     lastGeneratedImageUrl = pcImageSrc;
+                    lastGeneratedMoImageUrl = moImageSrc;
+                    lastGeneratedPcImageUrl = pcImageSrc;
                     moImg.crossOrigin = pcImg.crossOrigin = 'anonymous';
-                    moImg.src = moImageSrc;
-                    pcImg.src = pcImageSrc;
+                    var moPh = document.getElementById('resultMoPlaceholder');
+                    var pcPh = document.getElementById('resultPcPlaceholder');
+                    var moOverlay = document.getElementById('resultMoOverlay');
+                    var pcOverlay = document.getElementById('resultPcOverlay');
+                    function showMoRegen() {
+                        moImg.classList.remove('hidden');
+                        if (moPh) moPh.classList.add('hidden');
+                        if (moOverlay) moOverlay.classList.remove('hidden');
+                        setTimeout(function() { initOverlayPositions(); }, 50);
+                    }
+                    function showPcRegen() {
+                        pcImg.classList.remove('hidden');
+                        if (pcPh) pcPh.classList.add('hidden');
+                        if (pcOverlay) pcOverlay.classList.remove('hidden');
+                        setTimeout(function() { initOverlayPositions(); }, 50);
+                    }
+                    function hideMoRegen() {
+                        moImg.classList.add('hidden');
+                        if (moPh) moPh.classList.remove('hidden');
+                        if (moOverlay) moOverlay.classList.add('hidden');
+                    }
+                    function hidePcRegen() {
+                        pcImg.classList.add('hidden');
+                        if (pcPh) pcPh.classList.remove('hidden');
+                        if (pcOverlay) pcOverlay.classList.add('hidden');
+                    }
+                    
+                    // 재생성 MO 이미지 생성 즉시 표시 (resultMoImage에 moImageSrc 할당 후 UI 즉시 전환)
+                    function forceShowMoRegen() {
+                        if (!moImageSrc) return;
+                        var el = document.getElementById('resultMoImage');
+                        if (!el || !el.parentNode) return;
+                        lastGeneratedMoImageUrl = moImageSrc;
+                        el.removeAttribute('crossorigin');
+                        el.crossOrigin = '';
+                        el.src = moImageSrc;
+                        el.setAttribute('style', 'display: block !important; visibility: visible !important;');
+                        el.style.setProperty('display', 'block', 'important');
+                        el.style.setProperty('visibility', 'visible', 'important');
+                        el.classList.remove('hidden');
+                        if (moPh) moPh.classList.add('hidden');
+                        if (moOverlay) moOverlay.classList.remove('hidden');
+                        requestAnimationFrame(function() {
+                            el.setAttribute('style', 'display: block !important; visibility: visible !important;');
+                            el.classList.remove('hidden');
+                        });
+                        setTimeout(function() { initOverlayPositions(); }, 50);
+                    }
+                    moImg.onload = function() { 
+                        moImg.classList.remove('hidden');
+                        showMoRegen(); 
+                    };
+                    moImg.onerror = function() { 
+                        hideMoRegen(); 
+                    };
+                    pcImg.onload = function() { 
+                        showPcRegen(); 
+                    };
+                    pcImg.onerror = function() { 
+                        hidePcRegen(); 
+                    };
+                    
+                    // PC 이미지 할당
+                    if (pcImageSrc && pcImageSrc !== pcImg.src) {
+                        pcImg.src = '';
+                        setTimeout(function() { pcImg.src = pcImageSrc; }, 10);
+                    } else if (pcImageSrc) {
+                        pcImg.src = pcImageSrc;
+                    }
+                    if (pcImg.complete && pcImageSrc) {
+                        setTimeout(function() { if (pcImg.src === pcImageSrc) showPcRegen(); }, 100);
+                    }
+                    
+                    // MO: moImageSrc 생성되자마자 resultMoImage.src 할당, display/hidden !important 강제
+                    if (moImageSrc) {
+                        if (moImg) {
+                            moImg.src = moImageSrc;
+                            moImg.style.setProperty('display', 'block', 'important');
+                            moImg.style.setProperty('visibility', 'visible', 'important');
+                            moImg.classList.remove('hidden');
+                            if (moPh) moPh.classList.add('hidden');
+                            if (moOverlay) moOverlay.classList.remove('hidden');
+                        }
+                        forceShowMoRegen();
+                    } else {
+                        console.error('재생성 MO 이미지 소스가 없습니다! moImageSrc:', moImageSrc);
+                    }
                 } finally {
                     setGenerateStatus('');
                     setDevelopRegenDisabled(false);
