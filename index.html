@@ -658,6 +658,10 @@
             var negativePrompt = 'text, watermark, blurry, distorted, deformed';
             var apiKey = getFalApiKey();
             var useDirectFal = apiKey && !API_BASE;
+            // 서버 없이 쓰는 환경(GitHub Pages 등)에서 FAL 키도 없으면 /api/... 요청 시 405 발생 → 미리 안내
+            if (!API_BASE && !apiKey) {
+                return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. (fal.ai 가입 후 API 키 발급) 또는 로컬에서 node server.js를 실행한 뒤 사용하세요.'));
+            }
             
             // 참조 이미지(파일 data URL 또는 이미지 URL)가 있으면 2단계: 키워드 배경 생성 → 제품 합성
             if (productImageUrl) {
@@ -1079,6 +1083,7 @@
         function fetchFluxImageToImage(imageUrl, prompt, strength) {
             var falKey = getFalApiKey();
             var useDirect = falKey && !API_BASE;
+            if (!API_BASE && !falKey) return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. 또는 node server.js를 실행하세요.'));
             console.log('🟡 [진행 단계] FAL API 이미지 디벨롭 중...' + (useDirect ? ' (직접 fal.run)' : ' (서버 /api/fal/image-to-image)'));
             strength = strength == null ? 0.45 : Math.min(1, Math.max(0, strength));
             var body = { image_url: imageUrl, prompt: prompt || 'Keep the same composition, improve quality.', strength: strength };
@@ -1157,6 +1162,7 @@
             if (!moImageUrl) return Promise.resolve('');
             var falKey = getFalApiKey();
             var useDirect = falKey && !API_BASE;
+            if (!API_BASE && !falKey) return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. 또는 node server.js를 실행하세요.'));
             console.log('🟡 [진행 단계] FAL API MO→PC 확장 중...');
             var prompt = 'Same exact image, same scene, same colors, same mood. Only recompose for horizontal layout: place the main content on the FAR RIGHT 40% of the frame. The LEFT 60% must be empty or same background for text. Landscape 16:9. Do not add or remove any object. No new person.';
             var body = { image_url: moImageUrl, prompt: prompt, strength: 0.42 };
