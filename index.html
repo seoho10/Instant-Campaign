@@ -657,11 +657,17 @@
             var imageSize = isMo ? 'portrait_16_9' : 'landscape_16_9';
             var negativePrompt = 'text, watermark, blurry, distorted, deformed';
             var apiKey = getFalApiKey();
-            var useDirectFal = apiKey && !API_BASE;
-            // 서버 없이 쓰는 환경(GitHub Pages 등)에서 FAL 키도 없으면 /api/... 요청 시 405 발생 → 미리 안내
-            if (!API_BASE && !apiKey) {
-                return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. (fal.ai 가입 후 API 키 발급) 또는 로컬에서 node server.js를 실행한 뒤 사용하세요.'));
+            var useDirectFal = !!(apiKey && String(apiKey).trim());
+            if (!API_BASE) {
+                if (!useDirectFal) {
+                    return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. (fal.ai 가입 후 API 키 발급) 또는 로컬에서 node server.js를 실행한 뒤 사용하세요.'));
+                }
+                useDirectFal = true;
             }
+            // 서버 없을 때는 절대 상대 경로 /api/... 사용 금지 (GitHub Pages에서 405 방지)
+            function falTextToImageUrl() { return useDirectFal ? 'https://fal.run/fal-ai/flux/dev' : (API_BASE + '/api/fal/text-to-image'); }
+            function falImageToImageUrl() { return useDirectFal ? 'https://fal.run/fal-ai/flux/dev/image-to-image' : (API_BASE + '/api/fal/image-to-image'); }
+            function falOpts(body) { return useDirectFal ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + apiKey }, body: JSON.stringify(body) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }; }
             
             // 참조 이미지(파일 data URL 또는 이미지 URL)가 있으면 2단계: 키워드 배경 생성 → 제품 합성
             if (productImageUrl) {
@@ -672,9 +678,7 @@
                 var backgroundNegativePrompt = negativePrompt + ', product, object, subject, person, item, thing, foreground object, main subject';
                 var body1 = { prompt: backgroundPrompt, image_size: imageSize, negative_prompt: backgroundNegativePrompt, seed: seed != null ? seed : undefined };
                 
-                var url1 = useDirectFal ? 'https://fal.run/fal-ai/flux/dev' : (API_BASE + '/api/fal/text-to-image');
-                var opts1 = useDirectFal ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + apiKey }, body: JSON.stringify(body1) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body1) };
-                return fetch(url1, opts1)
+                return fetch(falTextToImageUrl(), falOpts(body1))
                 .then(function(r) {
                     if (!r.ok) {
                         return r.json().then(function(errorData) {
@@ -702,9 +706,7 @@
                     var compositePrompt = fusedPrompt + ' IGNORE AND COMPLETELY REMOVE the background from the reference image. REPLACE it entirely with this keyword-themed background scene. Extract ONLY the main product/subject (clothing, item, object) from the reference image and place it naturally within the new keyword-themed background. The original background (black, grey, white, or any solid color) must be completely gone and replaced with the keyword scene. The product should appear as if it was photographed in this new environment. Do not preserve any part of the original background.';
                     
                     var body2 = { image_url: imageUrlForApi, prompt: compositePrompt, strength: strength, image_size: imageSize, negative_prompt: negativePrompt + ', plain background, grey background, simple background, black background, white background, neutral background, product photography background, studio background, solid color background, monochrome background, uniform background, empty background, void background', seed: seed != null ? seed : undefined };
-                    var url2 = useDirectFal ? 'https://fal.run/fal-ai/flux/dev/image-to-image' : (API_BASE + '/api/fal/image-to-image');
-                    var opts2 = useDirectFal ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + apiKey }, body: JSON.stringify(body2) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body2) };
-                    return fetch(url2, opts2)
+                    return fetch(falImageToImageUrl(), falOpts(body2))
                     .then(function(r2) {
                         if (!r2.ok) {
                             return r2.json().then(function(errorData) {
@@ -754,9 +756,7 @@
                 var body = { prompt: fusedPrompt, image_size: imageSize, negative_prompt: negativePrompt };
                 if (seed != null) body.seed = seed;
                 var responseObj = null;
-                var url0 = useDirectFal ? 'https://fal.run/fal-ai/flux/dev' : (API_BASE + '/api/fal/text-to-image');
-                var opts0 = useDirectFal ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Key ' + apiKey }, body: JSON.stringify(body) } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
-                return fetch(url0, opts0)
+                return fetch(falTextToImageUrl(), falOpts(body))
                     .then(function(r) {
                         responseObj = r;
                         if (!r.ok) {
@@ -1082,8 +1082,11 @@
         // fal.ai Flux Image-to-Image (디벨롭: 현재 이미지 URL + 피드백, strength 0.45)
         function fetchFluxImageToImage(imageUrl, prompt, strength) {
             var falKey = getFalApiKey();
-            var useDirect = falKey && !API_BASE;
-            if (!API_BASE && !falKey) return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. 또는 node server.js를 실행하세요.'));
+            var useDirect = !!(falKey && String(falKey).trim());
+            if (!API_BASE) {
+                if (!useDirect) return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. 또는 node server.js를 실행하세요.'));
+                useDirect = true;
+            }
             console.log('🟡 [진행 단계] FAL API 이미지 디벨롭 중...' + (useDirect ? ' (직접 fal.run)' : ' (서버 /api/fal/image-to-image)'));
             strength = strength == null ? 0.45 : Math.min(1, Math.max(0, strength));
             var body = { image_url: imageUrl, prompt: prompt || 'Keep the same composition, improve quality.', strength: strength };
@@ -1161,8 +1164,11 @@
         function fetchPcFromMoImage(moImageUrl, seed) {
             if (!moImageUrl) return Promise.resolve('');
             var falKey = getFalApiKey();
-            var useDirect = falKey && !API_BASE;
-            if (!API_BASE && !falKey) return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. 또는 node server.js를 실행하세요.'));
+            var useDirect = !!(falKey && String(falKey).trim());
+            if (!API_BASE) {
+                if (!useDirect) return Promise.reject(new Error('서버 없이 사용하려면 config.js에 FAL API 키를 넣어 주세요. 또는 node server.js를 실행하세요.'));
+                useDirect = true;
+            }
             console.log('🟡 [진행 단계] FAL API MO→PC 확장 중...');
             var prompt = 'Same exact image, same scene, same colors, same mood. Only recompose for horizontal layout: place the main content on the FAR RIGHT 40% of the frame. The LEFT 60% must be empty or same background for text. Landscape 16:9. Do not add or remove any object. No new person.';
             var body = { image_url: moImageUrl, prompt: prompt, strength: 0.42 };
