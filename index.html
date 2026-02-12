@@ -500,8 +500,8 @@
             }
         };
         
-        // ——— 2. Gemini Creative Director: 키워드 자동 분석 및 창의적 시각화 (fal.ai Flux 최적화) ———
-        var GEMINI_CREATIVE_DIRECTOR_SYSTEM = '너는 배너 이미지용 장면을 설계하는 크리에이티브 디렉터다. **이미지 생성 AI는 fal.ai Flux 모델이고, 영어 프롬프트만 잘 이해한다. 한글 키워드·기획의도는 반드시 구체적인 영어 장면 묘사 한 문장으로 변환해라.**\n\n**Flux 모델 특성 이해:**\n- Flux는 구체적이고 상세한 프롬프트를 선호한다\n- 명사와 형용사를 풍부하게 사용하면 더 정확한 결과가 나온다\n- 조명, 색감, 분위기, 구도 등을 명시하면 좋다\n- 추상적이거나 모호한 표현보다는 시각적으로 명확한 묘사가 좋다\n\n**핵심 임무:**\n1. 주어진 키워드를 분석해라. 키워드가 무엇인지(회사명, 브랜드명, 장소명, 제품명, 개념 등) 파악하고, 그 키워드의 본질과 특징을 이해해라.\n2. 키워드와 기획의도를 배너 이미지에 창의적으로 녹여라. 키워드가 시각적으로 바로 연상되는 요소, 그 키워드의 대표적인 특징, 또는 키워드와 관련된 제품·서비스·분위기·맥락을 구체적으로 묘사해라.\n3. **Flux에 최적화된 프롬프트 작성:**\n   - 구체적인 명사 사용 (예: "refrigerator" not "appliance")\n   - 조명과 색감 명시 (예: "soft natural lighting, warm tones")\n   - 분위기와 스타일 명시 (예: "modern, minimalist, professional")\n   - 구도와 배치 명시 (예: "centered composition, spacious background")\n4. 예시(참고용, 절대 하드코딩하지 말고 키워드에 맞게 창의적으로 설계):\n   - 회사명/브랜드명이면 → 그 회사의 대표 제품·서비스·브랜드 특성을 시각적으로 반영\n   - 장소명이면 → 그 장소의 전형적인 배경·분위기·특징\n   - 제품명이면 → 그 제품이 사용되는 맥락·환경\n   - 개념/감성이면 → 그 개념을 시각적으로 표현할 수 있는 장면\n5. **실내·방·인테리어·창문·가구는 사용자가 명시적으로 실내를 요청할 때만 써라. 바다/날씨/바닷가/해변/청량 등이 나오면 무조건 야외 해안·하늘·바다 장면으로.**\n\n응답은 JSON 한 개만, 키 "backgroundPrompt" (string). backgroundPrompt는 영어 한 문장으로만, 키워드와 기획의도가 드러나는 구체적이고 상세하며 Flux에 최적화된 장면을 묘사해라.';
+        // ——— 2. Gemini Creative Director: 키워드 → 화보급 연출용 영어 프롬프트 (Flux/Photoroom 공통) ———
+        var GEMINI_CREATIVE_DIRECTOR_SYSTEM = 'You are a world-class commercial photographer. Analyze the user\'s **keyword** and **instructions** and generate a single English scene description for image APIs (Flux / Photoroom).\n\n**When the image will include a product (cutout) composited onto the scene (화보급 연출컷):**\n- **Physical placement:** The product must sit on a real surface — e.g. "on a wooden chair", "on the floor", "on a marble shelf", "on a table". Never leave the product floating in the air.\n- **Interaction:** Describe natural placement — e.g. "draped over the chair", "leaning against the wall", "placed on the surface".\n- **Lighting and shadows:** Specify lighting that creates depth — e.g. "strong sunlight with clear cast shadows", "soft window light with gentle shadows", "cinematic bokeh in the background".\n- **Quality phrase:** Always end the sentence with: "Professional photography, 8k, highly detailed, cinematic bokeh."\n\n**General rules:**\n- One English sentence only. Concrete nouns and adjectives. Specify mood, colors, and composition.\n- Output valid JSON only, with a single key "backgroundPrompt" (string). No other text.';
         
         // 상태 메시지 표시
         function setGenerateStatus(msg) {
@@ -892,7 +892,7 @@
                 var isHttpUrl = typeof productImageUrl === 'string' && /^https?:\/\//i.test(productImageUrl.trim());
                 if (isHttpUrl) {
                     var imgUrl = productImageUrl.trim();
-                    var getUrl = baseUrl + '?imageUrl=' + encodeURIComponent(imgUrl) + '&referenceBox=originalImage&removeBackground=true&background.prompt=' + encodeURIComponent(prompt) + '&outputSize=' + outputSize + (seed != null ? '&background.seed=' + seed : '');
+                    var getUrl = baseUrl + '?imageUrl=' + encodeURIComponent(imgUrl) + '&referenceBox=originalImage&removeBackground=true&background.prompt=' + encodeURIComponent(prompt) + '&outputSize=' + outputSize + '&shadow.mode=ai.soft&padding=0.15&scaling=fit' + (seed != null ? '&background.seed=' + seed : '');
                     return fetch(getUrl, { method: 'GET', headers: { 'x-api-key': apiKey } })
                         .then(function(r) {
                             if (!r.ok) return r.text().then(function(t) { throw new Error(r.status + ' ' + (t || r.statusText)); });
@@ -910,6 +910,9 @@
                             form.append('removeBackground', 'true');
                             form.append('background.prompt', prompt);
                             form.append('outputSize', outputSize);
+                            form.append('shadow.mode', 'ai.soft');
+                            form.append('padding', '0.15');
+                            form.append('scaling', 'fit');
                             if (seed != null) form.append('background.seed', String(seed));
                             return fetch(baseUrl, { method: 'POST', headers: { 'x-api-key': apiKey }, body: form });
                         })
